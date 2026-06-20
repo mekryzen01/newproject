@@ -20,10 +20,7 @@ import {
   Edit,
   Trash,
   X,
-  ChevronRight,
-  CheckCircle2,
-  AlertTriangle,
-  Info
+  ChevronRight
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useMenuManagerController } from '@/app/Controllers/useMenuManagerController';
@@ -286,7 +283,7 @@ export default function MenuManager() {
       {isModalOpen && currentItem && (
         <div className="fixed inset-0 flex items-center justify-center z-50 bg-black/50 backdrop-blur-sm p-4">
           <div className="bg-white dark:bg-[#15110a] rounded-2xl border border-amber-200/50 dark:border-amber-950/40 shadow-2xl w-full max-w-md overflow-hidden animate-scale-up">
-            <div className="h-1.5 bg-gradient-to-r from-amber-400 to-amber-600" />
+            <div className="h-1.5 bg-linear-to-r from-amber-400 to-amber-600" />
             <div className="p-6 border-b border-amber-100 dark:border-amber-950 flex justify-between items-center bg-amber-50/20 dark:bg-amber-950/5">
               <h3 className="font-bold text-base text-amber-900 dark:text-amber-200 font-heading">
                 {menus.some(m => m.id === currentItem.id) ? 'แก้ไขข้อมูลเมนู' : 'สร้างรายการเมนูใหม่'}
@@ -363,8 +360,8 @@ export default function MenuManager() {
                     </label>
                   )}
                 </div>
-                <p className="text-[9px] text-amber-700/50 dark:text-amber-500/40">
-                  * หมายเหตุ: หากทำเป็นเมนูหลักแบบหัวข้อขยาย (Collapsible) เพื่อครอบเมนูย่อย ให้เลือกติ๊ก "หัวข้อหลักขยายได้"
+                 <p className="text-[9px] text-amber-700/50 dark:text-amber-500/40">
+                  * หมายเหตุ: หากทำเป็นเมนูหลักแบบหัวข้อขยาย (Collapsible) เพื่อครอบเมนูย่อย ให้เลือกติ๊ก &quot;หัวข้อหลักขยายได้&quot;
                 </p>
               </div>
 

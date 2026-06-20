@@ -215,7 +215,7 @@ export default function AshesManagement() {
       {isModalOpen && currentRecord && (
         <div className="fixed inset-0 flex items-center justify-center z-50 bg-black/50 backdrop-blur-sm p-4 animate-fade-in">
           <div className="bg-white dark:bg-[#15110a] rounded-2xl border border-amber-200/50 dark:border-amber-950/40 shadow-2xl w-full max-w-lg overflow-hidden animate-scale-up flex flex-col max-h-[90vh]">
-            <div className="h-1.5 bg-gradient-to-r from-amber-400 to-amber-600 shrink-0" />
+            <div className="h-1.5 bg-linear-to-r from-amber-400 to-amber-600 shrink-0" />
             <div className="p-6 border-b border-amber-100 dark:border-amber-950 flex justify-between items-center bg-amber-50/20 dark:bg-amber-950/5 shrink-0">
               <h3 className="font-bold text-base text-amber-900 dark:text-amber-200 font-heading">
                 {currentRecord.deceased_name ? 'แก้ไขข้อมูลฝากอัฐิ' : 'บันทึกข้อมูลฝากกระดูกและสถิตอัฐิใหม่'}

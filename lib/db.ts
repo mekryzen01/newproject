@@ -112,15 +112,100 @@ export interface TempleSettings {
   logoUrl?: string;
 }
 
-// Initial Mock Data
-const initialMonks: Monk[] = [];
-const initialTransactions: FinancialTransaction[] = [];
-const initialEvents: TempleEvent[] = [];
-const initialInventory: InventoryItem[] = [];
-const initialBorrowRecords: BorrowRecord[] = [];
-const initialAshes: AshesRecord[] = [];
+// Supabase Configuration
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://klaybalbdnafkomqeduy.supabase.co';
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
 
-const initialMenuItems: MenuItem[] = [
+export const supabase = createClient(supabaseUrl, supabaseAnonKey);
+
+// DB Interfaces
+export interface DBMenuItem {
+  id: string;
+  name: string;
+  href: string;
+  icon_name: string;
+  is_active: boolean;
+  order: number;
+  parent_id?: string | null;
+}
+
+export interface DBTempleSettings {
+  temple_name: string;
+  abbr: string;
+  logo_icon: string;
+  theme_color: 'amber' | 'emerald' | 'indigo' | 'rose' | 'slate';
+  logo_url?: string;
+}
+
+export interface DBSystemUser {
+  id: string;
+  email: string;
+  full_name: string;
+  role: 'admin' | 'staff' | 'editor';
+  phone?: string;
+  password?: string;
+  created_at: string;
+}
+
+// Helpers for mappings
+const mapMenuItemFromDB = (m: DBMenuItem): MenuItem => ({
+  id: m.id,
+  name: m.name,
+  href: m.href,
+  iconName: m.icon_name,
+  isActive: m.is_active,
+  order: m.order,
+  parentId: m.parent_id
+});
+
+const mapMenuItemToDB = (m: MenuItem): DBMenuItem => ({
+  id: m.id,
+  name: m.name,
+  href: m.href,
+  icon_name: m.iconName,
+  is_active: m.isActive,
+  order: m.order,
+  parent_id: m.parentId
+});
+
+const mapSettingsFromDB = (s: DBTempleSettings): TempleSettings => ({
+  templeName: s.temple_name,
+  abbr: s.abbr,
+  logoIcon: s.logo_icon,
+  themeColor: s.theme_color,
+  logoUrl: s.logo_url
+});
+
+const mapSettingsToDB = (s: TempleSettings): DBTempleSettings => ({
+  temple_name: s.templeName,
+  abbr: s.abbr,
+  logo_icon: s.logoIcon,
+  theme_color: s.themeColor,
+  logo_url: s.logoUrl
+});
+
+const mapSystemUserFromDB = (u: DBSystemUser): SystemUser => ({
+  id: u.id,
+  email: u.email,
+  fullName: u.full_name,
+  role: u.role,
+  phone: u.phone,
+  password: u.password,
+  created_at: u.created_at
+});
+
+const mapSystemUserToDB = (u: SystemUser): DBSystemUser => ({
+  id: u.id,
+  email: u.email,
+  full_name: u.fullName,
+  role: u.role,
+  phone: u.phone,
+  password: u.password,
+  created_at: u.created_at
+});
+
+// Default Menu Items for Reset Function
+const DEFAULT_MENU_ITEMS: MenuItem[] = [
   { id: 'menu-1', name: 'แดชบอร์ดภาพรวม', href: '/dashboard', iconName: 'Home', isActive: true, order: 1, parentId: null },
   { id: 'menu-2', name: 'พระภิกษุและสามเณร', href: '/dashboard/monks', iconName: 'Users', isActive: true, order: 2, parentId: null },
   { id: 'menu-3', name: 'การเงินและบัญชีวัด', href: '#', iconName: 'DollarSign', isActive: true, order: 3, parentId: null },
@@ -135,129 +220,23 @@ const initialMenuItems: MenuItem[] = [
   { id: 'menu-9', name: 'จัดการผู้ใช้งาน', href: '/dashboard/users', iconName: 'User', isActive: true, order: 9, parentId: null }
 ];
 
-export const initialUsers: SystemUser[] = [
-  {
-    id: 'u-1',
-    email: 'admin@temple.mail.go.th',
-    fullName: 'มัคนายกผู้ดูแลระบบ',
-    role: 'admin',
-    phone: '081-234-5678',
-    password: 'admin123',
-    created_at: '2026-01-01'
-  },
-  {
-    id: 'u-2',
-    email: 'editor@temple.mail.go.th',
-    fullName: 'พระประสิทธิ์ วิปัสสโน (ผู้แก้ไข)',
-    role: 'editor',
-    phone: '082-345-6789',
-    password: 'editor123',
-    created_at: '2026-01-02'
-  },
-  {
-    id: 'u-3',
-    email: 'staff@temple.mail.go.th',
-    fullName: 'นายสมชาย ใจดี (เจ้าหน้าที่วัด)',
-    role: 'staff',
-    phone: '083-456-7890',
-    password: 'staff123',
-    created_at: '2026-01-03'
-  }
-];
-
-export const initialRanks: MonkRank[] = [
-  { id: 'r-1', name: 'เจ้าอาวาส (พระอุปัชฌาย์)', is_novice: false, person_type: 'monk', order: 1 },
-  { id: 'r-2', name: 'รองเจ้าอาวาส', is_novice: false, person_type: 'monk', order: 2 },
-  { id: 'r-3', name: 'พระผู้ช่วยเจ้าอาวาส', is_novice: false, person_type: 'monk', order: 3 },
-  { id: 'r-4', name: 'พระเลขานุการ', is_novice: false, person_type: 'monk', order: 4 },
-  { id: 'r-5', name: 'พระลูกวัด', is_novice: false, person_type: 'monk', order: 5 },
-  { id: 'r-6', name: 'สามเณร', is_novice: true, person_type: 'novice', order: 6 },
-  { id: 'r-7', name: 'ศิษย์วัด', is_novice: false, person_type: 'disciple', order: 7 }
-];
-
-const defaultSettings: TempleSettings = {
-  templeName: '',
-  abbr: 'TEMPLE OS',
-  logoIcon: 'Compass',
-  themeColor: 'amber',
-  logoUrl: ''
-};
-
-// Supabase Configuration
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
-
-const isSupabaseConfigured = supabaseUrl !== '' && supabaseAnonKey !== '';
-
-export const supabase = isSupabaseConfigured
-  ? createClient(supabaseUrl, supabaseAnonKey)
-  : null;
-
-// Generic helper to get/set local storage data
-const getLocalData = <T>(key: string, initialData: T[]): T[] => {
-  if (typeof window === 'undefined') return initialData;
-  const data = localStorage.getItem(`temple_sys_${key}`);
-  if (!data) {
-    localStorage.setItem(`temple_sys_${key}`, JSON.stringify(initialData));
-    return initialData;
-  }
-  return JSON.parse(data);
-};
-
-const setLocalData = <T>(key: string, data: T[]): void => {
-  if (typeof window === 'undefined') return;
-  localStorage.setItem(`temple_sys_${key}`, JSON.stringify(data));
-};
-
-// Hybrid DB Adapter
+// DB Adapter
 export const db = {
   // Monks API
   monks: {
     async list(): Promise<Monk[]> {
-      if (isSupabaseConfigured) {
-        try {
-          const { data, error } = await supabase!.from('monks').select('*').order('ordination_date', { ascending: true });
-          if (error) throw error;
-          return data as Monk[];
-        } catch (err) {
-          console.warn('Supabase fetch failed, falling back to LocalStorage:', err);
-        }
-      }
-      return getLocalData<Monk>('monks', initialMonks);
+      const { data, error } = await supabase.from('monks').select('*').order('ordination_date', { ascending: true });
+      if (error) throw error;
+      return data as Monk[];
     },
     async save(monk: Monk): Promise<Monk> {
-      if (isSupabaseConfigured) {
-        try {
-          const { data, error } = await supabase!.from('monks').upsert(monk).select().single();
-          if (error) throw error;
-          return data as Monk;
-        } catch (err) {
-          console.warn('Supabase save failed, saving to LocalStorage:', err);
-        }
-      }
-      const list = getLocalData<Monk>('monks', initialMonks);
-      const index = list.findIndex(m => m.id === monk.id);
-      if (index >= 0) {
-        list[index] = monk;
-      } else {
-        list.push(monk);
-      }
-      setLocalData('monks', list);
-      return monk;
+      const { data, error } = await supabase.from('monks').upsert(monk).select().single();
+      if (error) throw error;
+      return data as Monk;
     },
     async delete(id: string): Promise<boolean> {
-      if (isSupabaseConfigured) {
-        try {
-          const { error } = await supabase!.from('monks').delete().eq('id', id);
-          if (error) throw error;
-          return true;
-        } catch (err) {
-          console.warn('Supabase delete failed, removing from LocalStorage:', err);
-        }
-      }
-      const list = getLocalData<Monk>('monks', initialMonks);
-      const filtered = list.filter(m => m.id !== id);
-      setLocalData('monks', filtered);
+      const { error } = await supabase.from('monks').delete().eq('id', id);
+      if (error) throw error;
       return true;
     }
   },
@@ -265,57 +244,21 @@ export const db = {
   // Ranks API
   ranks: {
     async list(): Promise<MonkRank[]> {
-      if (isSupabaseConfigured) {
-        try {
-          const { data, error } = await supabase!.from('ranks').select('*').order('order', { ascending: true });
-          if (error) throw error;
-          return (data as MonkRank[]).map(r => ({
-            ...r,
-            person_type: r.person_type || (r.is_novice ? 'novice' : r.name === 'ศิษย์วัด' ? 'disciple' : 'monk')
-          }));
-        } catch (err) {
-          console.warn('Supabase fetch failed, falling back to LocalStorage:', err);
-        }
-      }
-      const rawList = getLocalData<MonkRank>('ranks', initialRanks);
-      return rawList.map(r => ({
+      const { data, error } = await supabase.from('ranks').select('*').order('order', { ascending: true });
+      if (error) throw error;
+      return (data as MonkRank[]).map(r => ({
         ...r,
         person_type: r.person_type || (r.is_novice ? 'novice' : r.name === 'ศิษย์วัด' ? 'disciple' : 'monk')
-      })).sort((a, b) => a.order - b.order);
+      }));
     },
     async save(rank: MonkRank): Promise<MonkRank> {
-      if (isSupabaseConfigured) {
-        try {
-          const { data, error } = await supabase!.from('ranks').upsert(rank).select().single();
-          if (error) throw error;
-          return data as MonkRank;
-        } catch (err) {
-          console.warn('Supabase save failed, saving to LocalStorage:', err);
-        }
-      }
-      const list = getLocalData<MonkRank>('ranks', initialRanks);
-      const index = list.findIndex(r => r.id === rank.id);
-      if (index >= 0) {
-        list[index] = rank;
-      } else {
-        list.push(rank);
-      }
-      setLocalData('ranks', list);
-      return rank;
+      const { data, error } = await supabase.from('ranks').upsert(rank).select().single();
+      if (error) throw error;
+      return data as MonkRank;
     },
     async delete(id: string): Promise<boolean> {
-      if (isSupabaseConfigured) {
-        try {
-          const { error } = await supabase!.from('ranks').delete().eq('id', id);
-          if (error) throw error;
-          return true;
-        } catch (err) {
-          console.warn('Supabase delete failed, removing from LocalStorage:', err);
-        }
-      }
-      const list = getLocalData<MonkRank>('ranks', initialRanks);
-      const filtered = list.filter(r => r.id !== id);
-      setLocalData('ranks', filtered);
+      const { error } = await supabase.from('ranks').delete().eq('id', id);
+      if (error) throw error;
       return true;
     }
   },
@@ -323,50 +266,18 @@ export const db = {
   // Financial API
   finance: {
     async list(): Promise<FinancialTransaction[]> {
-      if (isSupabaseConfigured) {
-        try {
-          const { data, error } = await supabase!.from('transactions').select('*').order('date', { ascending: false });
-          if (error) throw error;
-          return data as FinancialTransaction[];
-        } catch (err) {
-          console.warn('Supabase fetch failed, falling back to LocalStorage:', err);
-        }
-      }
-      return getLocalData<FinancialTransaction>('transactions', initialTransactions);
+      const { data, error } = await supabase.from('transactions').select('*').order('date', { ascending: false });
+      if (error) throw error;
+      return data as FinancialTransaction[];
     },
     async save(transaction: FinancialTransaction): Promise<FinancialTransaction> {
-      if (isSupabaseConfigured) {
-        try {
-          const { data, error } = await supabase!.from('transactions').upsert(transaction).select().single();
-          if (error) throw error;
-          return data as FinancialTransaction;
-        } catch (err) {
-          console.warn('Supabase save failed, saving to LocalStorage:', err);
-        }
-      }
-      const list = getLocalData<FinancialTransaction>('transactions', initialTransactions);
-      const index = list.findIndex(t => t.id === transaction.id);
-      if (index >= 0) {
-        list[index] = transaction;
-      } else {
-        list.push(transaction);
-      }
-      setLocalData('transactions', list);
-      return transaction;
+      const { data, error } = await supabase.from('transactions').upsert(transaction).select().single();
+      if (error) throw error;
+      return data as FinancialTransaction;
     },
     async delete(id: string): Promise<boolean> {
-      if (isSupabaseConfigured) {
-        try {
-          const { error } = await supabase!.from('transactions').delete().eq('id', id);
-          if (error) throw error;
-          return true;
-        } catch (err) {
-          console.warn('Supabase delete failed, removing from LocalStorage:', err);
-        }
-      }
-      const list = getLocalData<FinancialTransaction>('transactions', initialTransactions);
-      const filtered = list.filter(t => t.id !== id);
-      setLocalData('transactions', filtered);
+      const { error } = await supabase.from('transactions').delete().eq('id', id);
+      if (error) throw error;
       return true;
     }
   },
@@ -374,50 +285,18 @@ export const db = {
   // Events API
   events: {
     async list(): Promise<TempleEvent[]> {
-      if (isSupabaseConfigured) {
-        try {
-          const { data, error } = await supabase!.from('events').select('*').order('date', { ascending: true });
-          if (error) throw error;
-          return data as TempleEvent[];
-        } catch (err) {
-          console.warn('Supabase fetch failed, falling back to LocalStorage:', err);
-        }
-      }
-      return getLocalData<TempleEvent>('events', initialEvents);
+      const { data, error } = await supabase.from('events').select('*').order('date', { ascending: true });
+      if (error) throw error;
+      return data as TempleEvent[];
     },
     async save(event: TempleEvent): Promise<TempleEvent> {
-      if (isSupabaseConfigured) {
-        try {
-          const { data, error } = await supabase!.from('events').upsert(event).select().single();
-          if (error) throw error;
-          return data as TempleEvent;
-        } catch (err) {
-          console.warn('Supabase save failed, saving to LocalStorage:', err);
-        }
-      }
-      const list = getLocalData<TempleEvent>('events', initialEvents);
-      const index = list.findIndex(e => e.id === event.id);
-      if (index >= 0) {
-        list[index] = event;
-      } else {
-        list.push(event);
-      }
-      setLocalData('events', list);
-      return event;
+      const { data, error } = await supabase.from('events').upsert(event).select().single();
+      if (error) throw error;
+      return data as TempleEvent;
     },
     async delete(id: string): Promise<boolean> {
-      if (isSupabaseConfigured) {
-        try {
-          const { error } = await supabase!.from('events').delete().eq('id', id);
-          if (error) throw error;
-          return true;
-        } catch (err) {
-          console.warn('Supabase delete failed, removing from LocalStorage:', err);
-        }
-      }
-      const list = getLocalData<TempleEvent>('events', initialEvents);
-      const filtered = list.filter(e => e.id !== id);
-      setLocalData('events', filtered);
+      const { error } = await supabase.from('events').delete().eq('id', id);
+      if (error) throw error;
       return true;
     }
   },
@@ -425,50 +304,18 @@ export const db = {
   // Inventory API
   inventory: {
     async list(): Promise<InventoryItem[]> {
-      if (isSupabaseConfigured) {
-        try {
-          const { data, error } = await supabase!.from('inventory').select('*').order('name', { ascending: true });
-          if (error) throw error;
-          return data as InventoryItem[];
-        } catch (err) {
-          console.warn('Supabase fetch failed, falling back to LocalStorage:', err);
-        }
-      }
-      return getLocalData<InventoryItem>('inventory', initialInventory);
+      const { data, error } = await supabase.from('inventory').select('*').order('name', { ascending: true });
+      if (error) throw error;
+      return data as InventoryItem[];
     },
     async save(item: InventoryItem): Promise<InventoryItem> {
-      if (isSupabaseConfigured) {
-        try {
-          const { data, error } = await supabase!.from('inventory').upsert(item).select().single();
-          if (error) throw error;
-          return data as InventoryItem;
-        } catch (err) {
-          console.warn('Supabase save failed, saving to LocalStorage:', err);
-        }
-      }
-      const list = getLocalData<InventoryItem>('inventory', initialInventory);
-      const index = list.findIndex(i => i.id === item.id);
-      if (index >= 0) {
-        list[index] = item;
-      } else {
-        list.push(item);
-      }
-      setLocalData('inventory', list);
-      return item;
+      const { data, error } = await supabase.from('inventory').upsert(item).select().single();
+      if (error) throw error;
+      return data as InventoryItem;
     },
     async delete(id: string): Promise<boolean> {
-      if (isSupabaseConfigured) {
-        try {
-          const { error } = await supabase!.from('inventory').delete().eq('id', id);
-          if (error) throw error;
-          return true;
-        } catch (err) {
-          console.warn('Supabase delete failed, removing from LocalStorage:', err);
-        }
-      }
-      const list = getLocalData<InventoryItem>('inventory', initialInventory);
-      const filtered = list.filter(i => i.id !== id);
-      setLocalData('inventory', filtered);
+      const { error } = await supabase.from('inventory').delete().eq('id', id);
+      if (error) throw error;
       return true;
     }
   },
@@ -476,76 +323,41 @@ export const db = {
   // Borrow/Return API
   borrow: {
     async list(): Promise<BorrowRecord[]> {
-      if (isSupabaseConfigured) {
-        try {
-          const { data, error } = await supabase!.from('borrow_records').select('*').order('borrow_date', { ascending: false });
-          if (error) throw error;
-          return data as BorrowRecord[];
-        } catch (err) {
-          console.warn('Supabase fetch failed, falling back to LocalStorage:', err);
-        }
-      }
-      return getLocalData<BorrowRecord>('borrow_records', initialBorrowRecords);
+      const { data, error } = await supabase.from('borrow_records').select('*').order('borrow_date', { ascending: false });
+      if (error) throw error;
+      return data as BorrowRecord[];
     },
     async save(record: BorrowRecord): Promise<BorrowRecord> {
-      if (isSupabaseConfigured) {
-        try {
-          const { data, error } = await supabase!.from('borrow_records').upsert(record).select().single();
-          if (error) throw error;
-          return data as BorrowRecord;
-        } catch (err) {
-          console.warn('Supabase save failed, saving to LocalStorage:', err);
-        }
-      }
-      const list = getLocalData<BorrowRecord>('borrow_records', initialBorrowRecords);
-      const index = list.findIndex(b => b.id === record.id);
-      if (index >= 0) {
-        list[index] = record;
-      } else {
-        list.push(record);
-      }
-      setLocalData('borrow_records', list);
+      const { data, error } = await supabase.from('borrow_records').upsert(record).select().single();
+      if (error) throw error;
 
-      // Adjust inventory available qty based on borrow action
-      const inventory = getLocalData<InventoryItem>('inventory', initialInventory);
-      const item = inventory.find(i => i.id === record.item_id);
-      if (item) {
+      // Adjust inventory available qty based on borrow action in database
+      const itemResponse = await supabase.from('inventory').select('*').eq('id', record.item_id).single();
+      if (!itemResponse.error && itemResponse.data) {
+        const item = itemResponse.data as InventoryItem;
         if (record.status === 'returned') {
-          const previousRecord = getLocalData<BorrowRecord>('borrow_records', initialBorrowRecords).find(b => b.id === record.id);
-          if (!previousRecord || previousRecord.status !== 'returned') {
-            item.available_qty = Math.min(item.total_qty, item.available_qty + record.borrow_qty);
-            const listInv = getLocalData<InventoryItem>('inventory', initialInventory);
-            const idxInv = listInv.findIndex(i => i.id === item.id);
-            if (idxInv >= 0) listInv[idxInv] = item;
-            setLocalData('inventory', listInv);
+          // Check if previously returned to avoid double adjusting
+          const prevRes = await supabase.from('borrow_records').select('status').eq('id', record.id);
+          const wasReturned = prevRes.data && prevRes.data.length > 0 && prevRes.data[0].status === 'returned';
+          if (!wasReturned) {
+            const newQty = Math.min(item.total_qty, item.available_qty + record.borrow_qty);
+            await supabase.from('inventory').update({ available_qty: newQty }).eq('id', item.id);
           }
         } else {
-          const isNew = index === -1;
+          const prevRes = await supabase.from('borrow_records').select('id').eq('id', record.id);
+          const isNew = !prevRes.data || prevRes.data.length === 0;
           if (isNew) {
-            item.available_qty = Math.max(0, item.available_qty - record.borrow_qty);
-            const listInv = getLocalData<InventoryItem>('inventory', initialInventory);
-            const idxInv = listInv.findIndex(i => i.id === item.id);
-            if (idxInv >= 0) listInv[idxInv] = item;
-            setLocalData('inventory', listInv);
+            const newQty = Math.max(0, item.available_qty - record.borrow_qty);
+            await supabase.from('inventory').update({ available_qty: newQty }).eq('id', item.id);
           }
         }
       }
 
-      return record;
+      return data as BorrowRecord;
     },
     async delete(id: string): Promise<boolean> {
-      if (isSupabaseConfigured) {
-        try {
-          const { error } = await supabase!.from('borrow_records').delete().eq('id', id);
-          if (error) throw error;
-          return true;
-        } catch (err) {
-          console.warn('Supabase delete failed, removing from LocalStorage:', err);
-        }
-      }
-      const list = getLocalData<BorrowRecord>('borrow_records', initialBorrowRecords);
-      const filtered = list.filter(b => b.id !== id);
-      setLocalData('borrow_records', filtered);
+      const { error } = await supabase.from('borrow_records').delete().eq('id', id);
+      if (error) throw error;
       return true;
     }
   },
@@ -553,50 +365,18 @@ export const db = {
   // Ashes API (ทะเบียนฝากกระดูก)
   ashes: {
     async list(): Promise<AshesRecord[]> {
-      if (isSupabaseConfigured) {
-        try {
-          const { data, error } = await supabase!.from('ashes').select('*').order('niche_code', { ascending: true });
-          if (error) throw error;
-          return data as AshesRecord[];
-        } catch (err) {
-          console.warn('Supabase fetch failed, falling back to LocalStorage:', err);
-        }
-      }
-      return getLocalData<AshesRecord>('ashes', initialAshes);
+      const { data, error } = await supabase.from('ashes').select('*').order('niche_code', { ascending: true });
+      if (error) throw error;
+      return data as AshesRecord[];
     },
     async save(record: AshesRecord): Promise<AshesRecord> {
-      if (isSupabaseConfigured) {
-        try {
-          const { data, error } = await supabase!.from('ashes').upsert(record).select().single();
-          if (error) throw error;
-          return data as AshesRecord;
-        } catch (err) {
-          console.warn('Supabase save failed, saving to LocalStorage:', err);
-        }
-      }
-      const list = getLocalData<AshesRecord>('ashes', initialAshes);
-      const index = list.findIndex(a => a.id === record.id);
-      if (index >= 0) {
-        list[index] = record;
-      } else {
-        list.push(record);
-      }
-      setLocalData('ashes', list);
-      return record;
+      const { data, error } = await supabase.from('ashes').upsert(record).select().single();
+      if (error) throw error;
+      return data as AshesRecord;
     },
     async delete(id: string): Promise<boolean> {
-      if (isSupabaseConfigured) {
-        try {
-          const { error } = await supabase!.from('ashes').delete().eq('id', id);
-          if (error) throw error;
-          return true;
-        } catch (err) {
-          console.warn('Supabase delete failed, removing from LocalStorage:', err);
-        }
-      }
-      const list = getLocalData<AshesRecord>('ashes', initialAshes);
-      const filtered = list.filter(a => a.id !== id);
-      setLocalData('ashes', filtered);
+      const { error } = await supabase.from('ashes').delete().eq('id', id);
+      if (error) throw error;
       return true;
     }
   },
@@ -604,178 +384,70 @@ export const db = {
   // Dynamic System Menus API
   menus: {
     async list(): Promise<MenuItem[]> {
-      if (isSupabaseConfigured) {
-        try {
-          const { data, error } = await supabase!.from('menu_items').select('*').order('order', { ascending: true });
-          if (error) throw error;
-          if (data && data.length > 0) return data as MenuItem[];
-        } catch (err) {
-          console.warn('Supabase fetch menus failed, falling back to LocalStorage:', err);
-        }
-      }
-      const list = getLocalData<MenuItem>('menu_items', initialMenuItems);
-      let changed = false;
-      initialMenuItems.forEach(item => {
-        if (!list.some(m => m.id === item.id)) {
-          list.push(item);
-          changed = true;
-        }
-      });
-      if (changed) {
-        setLocalData('menu_items', list);
-      }
-      return list.sort((a, b) => a.order - b.order);
+      const { data, error } = await supabase.from('menu_items').select('*').order('order', { ascending: true });
+      if (error) throw error;
+      return (data || []).map(mapMenuItemFromDB);
     },
     async save(item: MenuItem): Promise<MenuItem> {
-      if (isSupabaseConfigured) {
-        try {
-          const { data, error } = await supabase!.from('menu_items').upsert(item).select().single();
-          if (error) throw error;
-          return data as MenuItem;
-        } catch (err) {
-          console.warn('Supabase save menu failed, saving to LocalStorage:', err);
-        }
-      }
-      const list = getLocalData<MenuItem>('menu_items', initialMenuItems);
-      const index = list.findIndex(m => m.id === item.id);
-      if (index >= 0) {
-        list[index] = item;
-      } else {
-        list.push(item);
-      }
-      setLocalData('menu_items', list);
-      return item;
+      const dbItem = mapMenuItemToDB(item);
+      const { data, error } = await supabase.from('menu_items').upsert(dbItem).select().single();
+      if (error) throw error;
+      return mapMenuItemFromDB(data);
     },
     async delete(id: string): Promise<boolean> {
-      if (isSupabaseConfigured) {
-        try {
-          const { error } = await supabase!.from('menu_items').delete().eq('id', id);
-          if (error) throw error;
-          return true;
-        } catch (err) {
-          console.warn('Supabase delete menu failed, removing from LocalStorage:', err);
-        }
-      }
-      const list = getLocalData<MenuItem>('menu_items', initialMenuItems);
-      const filtered = list.filter(m => m.id !== id && m.parentId !== id);
-      setLocalData('menu_items', filtered);
+      const { error } = await supabase.from('menu_items').delete().eq('id', id);
+      if (error) throw error;
       return true;
     },
     async saveAll(items: MenuItem[]): Promise<MenuItem[]> {
-      if (isSupabaseConfigured) {
-        try {
-          const { data, error } = await supabase!.from('menu_items').upsert(items).select();
-          if (error) throw error;
-          if (data) return data as MenuItem[];
-        } catch (err) {
-          console.warn('Supabase bulk save menus failed, saving to LocalStorage:', err);
-        }
-      }
-      setLocalData('menu_items', items);
-      return items;
+      const dbItems = items.map(mapMenuItemToDB);
+      const { data, error } = await supabase.from('menu_items').upsert(dbItems).select();
+      if (error) throw error;
+      return (data || []).map(mapMenuItemFromDB);
     },
     async reset(): Promise<MenuItem[]> {
-      if (isSupabaseConfigured) {
-        try {
-          const { error: delError } = await supabase!.from('menu_items').delete().neq('id', 'dummy');
-          if (delError) throw delError;
-          const { data, error } = await supabase!.from('menu_items').insert(initialMenuItems).select();
-          if (error) throw error;
-          if (data) return data as MenuItem[];
-        } catch (err) {
-          console.warn('Supabase reset menus failed, resetting in LocalStorage:', err);
-        }
-      }
-      setLocalData('menu_items', initialMenuItems);
-      return initialMenuItems;
+      const { error: delError } = await supabase.from('menu_items').delete().neq('id', 'dummy');
+      if (delError) throw delError;
+
+      const dbItems = DEFAULT_MENU_ITEMS.map(mapMenuItemToDB);
+      const { data, error } = await supabase.from('menu_items').insert(dbItems).select();
+      if (error) throw error;
+      return (data || []).map(mapMenuItemFromDB);
     }
   },
 
   // System Settings API (เปลี่ยนชื่อวัด, โลโก้, สีธีม)
   settings: {
     async get(): Promise<TempleSettings> {
-      if (isSupabaseConfigured) {
-        try {
-          const { data, error } = await supabase!.from('settings').select('*').limit(1);
-          if (error) throw error;
-          if (data && data.length > 0) return data[0] as TempleSettings;
-        } catch (err) {
-          console.warn('Supabase fetch settings failed, falling back to LocalStorage:', err);
-        }
-      }
-      if (typeof window === 'undefined') return defaultSettings;
-      const data = localStorage.getItem('temple_sys_config_settings');
-      if (!data) {
-        localStorage.setItem('temple_sys_config_settings', JSON.stringify(defaultSettings));
-        return defaultSettings;
-      }
-      return JSON.parse(data);
+      const { data, error } = await supabase.from('settings').select('*').limit(1);
+      if (error) throw error;
+      if (data && data.length > 0) return mapSettingsFromDB(data[0]);
+      throw new Error('System settings not found');
     },
     async save(settings: TempleSettings): Promise<TempleSettings> {
-      if (isSupabaseConfigured) {
-        try {
-          // Upsert settings (assuming single config row)
-          const { data, error } = await supabase!.from('settings').upsert({ id: 'config-1', ...settings }).select().single();
-          if (error) throw error;
-          return data as TempleSettings;
-        } catch (err) {
-          console.warn('Supabase save settings failed, saving to LocalStorage:', err);
-        }
-      }
-      if (typeof window !== 'undefined') {
-        localStorage.setItem('temple_sys_config_settings', JSON.stringify(settings));
-      }
-      return settings;
+      const dbSettings = mapSettingsToDB(settings);
+      const { data, error } = await supabase.from('settings').upsert({ id: 'config-1', ...dbSettings }).select().single();
+      if (error) throw error;
+      return mapSettingsFromDB(data);
     }
   },
 
   // Users API
   users: {
     async list(): Promise<SystemUser[]> {
-      if (isSupabaseConfigured) {
-        try {
-          const { data, error } = await supabase!.from('system_users').select('*').order('created_at', { ascending: false });
-          if (error) throw error;
-          return data as SystemUser[];
-        } catch (err) {
-          console.warn('Supabase fetch system_users failed, falling back to LocalStorage:', err);
-        }
-      }
-      return getLocalData<SystemUser>('system_users', initialUsers);
+      const { data, error } = await supabase.from('users').select('*').order('created_at', { ascending: false });
+      if (error) throw error;
+      return (data || []).map(mapSystemUserFromDB);
     },
     async save(user: SystemUser): Promise<SystemUser> {
-      if (isSupabaseConfigured) {
-        try {
-          const { data, error } = await supabase!.from('system_users').upsert(user).select().single();
-          if (error) throw error;
-          return data as SystemUser;
-        } catch (err) {
-          console.warn('Supabase save system_user failed, saving to LocalStorage:', err);
-        }
-      }
-      const list = getLocalData<SystemUser>('system_users', initialUsers);
-      const index = list.findIndex(u => u.id === user.id);
-      if (index >= 0) {
-        list[index] = user;
-      } else {
-        list.push(user);
-      }
-      setLocalData('system_users', list);
-      return user;
+      const dbUser = mapSystemUserToDB(user);
+      const { data, error } = await supabase.from('users').upsert(dbUser).select().single();
+      if (error) throw error;
+      return mapSystemUserFromDB(data);
     },
     async delete(id: string): Promise<boolean> {
-      if (isSupabaseConfigured) {
-        try {
-          const { error } = await supabase!.from('system_users').delete().eq('id', id);
-          if (error) throw error;
-          return true;
-        } catch (err) {
-          console.warn('Supabase delete system_user failed, removing from LocalStorage:', err);
-        }
-      }
-      const list = getLocalData<SystemUser>('system_users', initialUsers);
-      const filtered = list.filter(u => u.id !== id);
-      setLocalData('system_users', filtered);
+      const { error } = await supabase.from('users').delete().eq('id', id);
+      if (error) throw error;
       return true;
     }
   }

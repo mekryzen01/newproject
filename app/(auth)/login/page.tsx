@@ -26,11 +26,11 @@ export default function Login() {
             <div className="relative w-full max-w-md bg-white/80 dark:bg-[#1f1a12]/80 backdrop-blur-xl border border-amber-200/50 dark:border-amber-950/40 shadow-2xl rounded-2xl p-8 overflow-hidden transition-all duration-300">
 
                 {/* Gold Accent Top Ribbon */}
-                <div className="absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-amber-300 via-amber-500 to-amber-600" />
+                <div className="absolute top-0 left-0 right-0 h-1.5 bg-linear-to-r from-amber-300 via-amber-500 to-amber-600" />
 
                 {/* Brand / Logo Section */}
                 <div className="flex flex-col items-center mb-8">
-                    <div className="w-16 h-16 rounded-full bg-gradient-to-tr from-amber-500 to-amber-600 flex items-center justify-center text-white shadow-lg shadow-amber-500/20 mb-4 animate-pulse">
+                    <div className="w-16 h-16 rounded-full bg-linear-to-tr from-amber-500 to-amber-600 flex items-center justify-center text-white shadow-lg shadow-amber-500/20 mb-4 animate-pulse">
                         <KeyRound className="size-8" />
                     </div>
                     <h2 className="text-2xl font-bold tracking-tight text-amber-900 dark:text-amber-200 font-heading text-center">
@@ -94,7 +94,7 @@ export default function Login() {
                     <Button
                         type="submit"
                         disabled={loading}
-                        className="w-full py-6 rounded-lg bg-gradient-to-r from-amber-500 via-amber-600 to-amber-700 hover:from-amber-600 hover:to-amber-800 text-white font-semibold shadow-lg shadow-amber-500/10 hover:shadow-amber-500/20 transition-all duration-300 mt-2 flex items-center justify-center gap-2 group border-none"
+                        className="w-full py-6 rounded-lg bg-linear-to-r from-amber-500 via-amber-600 to-amber-700 hover:from-amber-600 hover:to-amber-800 text-white font-semibold shadow-lg shadow-amber-500/10 hover:shadow-amber-500/20 transition-all duration-300 mt-2 flex items-center justify-center gap-2 group border-none"
                     >
                         {loading ? (
                             <>

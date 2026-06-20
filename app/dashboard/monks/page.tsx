@@ -12,9 +12,6 @@ import {
   Calendar as CalendarIcon,
   Shield,
   Loader2,
-  CheckCircle2,
-  AlertTriangle,
-  Info,
   ChevronDown,
   ChevronUp,
   MapPin,
@@ -24,10 +21,12 @@ import { Button } from '@/components/ui/button';
 import { useMonksController } from '@/app/Controllers/useMonksController';
 import { CustomDialog } from '@/components/ui/custom-dialog';
 import { usePermission } from '@/lib/usePermission';
+import { Monk } from '@/lib/db';
+import Image from 'next/image';
 
 export default function MonksManagement() {
   const { permissions } = usePermission();
-  const [detailedMonk, setDetailedMonk] = React.useState<any>(null);
+  const [detailedMonk, setDetailedMonk] = React.useState<Monk | null>(null);
   const [expandedMonkIds, setExpandedMonkIds] = React.useState<Record<string, boolean>>({});
   const [personTypeFilter, setPersonTypeFilter] = React.useState<string>('all');
 
@@ -200,17 +199,20 @@ export default function MonksManagement() {
                 <div>
                   <div className="flex items-center gap-3.5 mb-4">
                     {monk.image_url && (
-                      <img
+                      <Image
                         src={monk.image_url}
+                        width={48}
+                        height={48}
                         className="w-12 h-12 rounded-full object-cover border border-amber-500/20 shadow-sm"
                         alt={monk.name}
+                        unoptimized
                         onError={(e) => {
-                          (e.target as HTMLImageElement).style.display = 'none';
+                          (e.currentTarget as HTMLImageElement).style.display = 'none';
                         }}
                       />
                     )}
                     {!monk.image_url && (
-                      <div className="w-12 h-12 rounded-full bg-gradient-to-tr from-amber-500/10 to-amber-600/10 border border-amber-500/20 flex items-center justify-center font-bold text-amber-800 dark:text-amber-400 text-lg">
+                      <div className="w-12 h-12 rounded-full bg-linear-to-tr from-amber-500/10 to-amber-600/10 border border-amber-500/20 flex items-center justify-center font-bold text-amber-800 dark:text-amber-400 text-lg">
                         {monk.chaya && monk.chaya !== '-' ? monk.chaya[0] : monk.name?.[0] ?? '?'}
                       </div>
                     )}
@@ -359,7 +361,7 @@ export default function MonksManagement() {
           <div className="bg-white dark:bg-[#15110a] rounded-2xl border border-amber-200/50 dark:border-amber-950/40 shadow-2xl w-full max-w-lg overflow-hidden animate-scale-up flex flex-col max-h-[90vh]">
             
             {/* Modal Ribbon Accent */}
-            <div className="h-1.5 bg-gradient-to-r from-amber-400 to-amber-600" />
+            <div className="h-1.5 bg-linear-to-r from-amber-400 to-amber-600" />
 
             {/* Modal Header */}
             <div className="p-6 border-b border-amber-100 dark:border-amber-950 flex justify-between items-center bg-amber-50/20 dark:bg-amber-950/5 shrink-0">
@@ -448,7 +450,7 @@ export default function MonksManagement() {
                     <label className="text-xs font-bold text-amber-900/80 dark:text-amber-300">สถานภาพ</label>
                     <select
                       value={currentMonk.status || 'active'}
-                      onChange={(e) => updateFormFields('status', e.target.value as any)}
+                      onChange={(e) => updateFormFields('status', e.target.value as 'active' | 'retired' | 'away')}
                       className="w-full px-3 py-2 text-xs rounded-lg border border-amber-200 dark:border-amber-950 bg-white dark:bg-[#110e08] text-amber-950 dark:text-amber-100 outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 cursor-pointer"
                     >
                       <option value="active">จำพรรษาที่วัด</option>
@@ -492,7 +494,14 @@ export default function MonksManagement() {
                       {/* Preview */}
                       <div className="w-16 h-16 rounded-xl border-2 border-amber-200 dark:border-amber-950 bg-amber-50/30 dark:bg-amber-950/10 overflow-hidden flex items-center justify-center shrink-0 text-amber-300 dark:text-amber-700">
                         {currentMonk.image_url ? (
-                          <img src={currentMonk.image_url} className="w-full h-full object-cover" alt="preview" />
+                          <Image
+                            src={currentMonk.image_url}
+                            width={64}
+                            height={64}
+                            className="w-full h-full object-cover"
+                            alt="preview"
+                            unoptimized
+                          />
                         ) : (
                           <svg xmlns="http://www.w3.org/2000/svg" className="size-8" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
                         )}
@@ -640,7 +649,7 @@ export default function MonksManagement() {
         <div className="fixed inset-0 flex items-center justify-center z-50 bg-black/50 backdrop-blur-sm p-4 animate-fade-in">
           <div className="bg-white dark:bg-[#15110a] rounded-2xl border border-amber-200/50 dark:border-amber-950/40 shadow-2xl w-full max-w-xl overflow-hidden animate-scale-up">
             {/* Modal Ribbon Accent */}
-            <div className="h-1.5 bg-gradient-to-r from-amber-400 to-amber-600" />
+            <div className="h-1.5 bg-linear-to-r from-amber-400 to-amber-600" />
 
             {/* Modal Header */}
             <div className="p-6 border-b border-amber-100 dark:border-amber-950 flex justify-between items-center bg-amber-50/20 dark:bg-amber-950/5">
@@ -660,9 +669,16 @@ export default function MonksManagement() {
               {/* Header profile info */}
               <div className="flex flex-col sm:flex-row items-center gap-4 pb-4 border-b border-amber-100/50 dark:border-amber-950/40">
                 {detailedMonk.image_url ? (
-                  <img src={detailedMonk.image_url} className="w-20 h-20 rounded-full object-cover border-2 border-amber-500 shadow-md" alt={detailedMonk.name} />
+                  <Image
+                    src={detailedMonk.image_url}
+                    width={80}
+                    height={80}
+                    className="w-20 h-20 rounded-full object-cover border-2 border-amber-500 shadow-md"
+                    alt={detailedMonk.name}
+                    unoptimized
+                  />
                 ) : (
-                  <div className="w-20 h-20 rounded-full bg-gradient-to-tr from-amber-500 to-amber-600 border-2 border-amber-500/30 flex items-center justify-center font-bold text-white text-3xl">
+                  <div className="w-20 h-20 rounded-full bg-linear-to-tr from-amber-500 to-amber-600 border-2 border-amber-500/30 flex items-center justify-center font-bold text-white text-3xl">
                     {detailedMonk.chaya === '-' ? 'ณ' : detailedMonk.chaya[0]}
                   </div>
                 )}

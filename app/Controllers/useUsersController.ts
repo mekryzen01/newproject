@@ -45,7 +45,7 @@ export function useUsersController() {
 
   const handleOpenAddModal = () => {
     setCurrentUser({
-      id: `u-${Date.now()}`,
+      id: crypto.randomUUID(),
       email: '',
       fullName: '',
       role: 'staff',

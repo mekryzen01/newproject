@@ -1,9 +1,13 @@
-import { pgTable, serial, text, varchar, integer, boolean, jsonb } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, integer, boolean, jsonb, uuid } from "drizzle-orm/pg-core";
 
 export const users = pgTable('users', {
-  id: serial('id').primaryKey(),
-  fullName: text('full_name'),
-  phone: varchar('phone', { length: 256 }),
+  id: uuid('id').primaryKey(),
+  email: text('email').notNull(),
+  fullName: text('full_name').notNull(),
+  role: text('role').notNull(), // 'admin' | 'staff' | 'editor'
+  phone: text('phone'),
+  password: text('password'),
+  createdAt: text('created_at').notNull(),
 });
 
 export const monks = pgTable('monks', {
@@ -108,12 +112,4 @@ export const ranks = pgTable('ranks', {
   order: integer('order').notNull(),
 });
 
-export const systemUsers = pgTable('system_users', {
-  id: varchar('id', { length: 256 }).primaryKey(),
-  email: text('email').notNull(),
-  fullName: text('full_name').notNull(),
-  role: text('role').notNull(), // 'admin' | 'staff' | 'editor'
-  phone: text('phone'),
-  password: text('password'),
-  createdAt: text('created_at').notNull(),
-});
+

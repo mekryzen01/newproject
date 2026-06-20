@@ -8,10 +8,7 @@ import {
   Trash,
   X,
   Loader2,
-  ShieldAlert,
   Shield,
-  Layers,
-  ArrowUpDown,
   Search
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -203,7 +200,7 @@ export default function RanksManagement() {
           <div className="bg-white dark:bg-[#15110a] rounded-2xl border border-amber-200/50 dark:border-amber-950/40 shadow-2xl w-full max-w-md overflow-hidden animate-scale-up flex flex-col">
             
             {/* Modal Ribbon Accent */}
-            <div className="h-1.5 bg-gradient-to-r from-amber-400 to-amber-600" />
+            <div className="h-1.5 bg-linear-to-r from-amber-400 to-amber-600" />
 
             {/* Modal Header */}
             <div className="p-6 border-b border-amber-100 dark:border-amber-950 flex justify-between items-center bg-amber-50/20 dark:bg-amber-950/5 shrink-0">

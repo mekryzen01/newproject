@@ -28,7 +28,7 @@ export async function POST(request: Request) {
       }
 
       if (data.session) {
-        // Fetch the user's role and name from system_users table matching the email
+        // Fetch the user's role and name from users table matching the email
         const userList = await db.users.list();
         const dbUser = userList.find(u => u.email.toLowerCase() === data.session.user.email?.toLowerCase());
 

@@ -6,7 +6,70 @@
       "idx": 0,
       "version": "7",
       "when": 1781949364335,
-      "tag": "0000_living_queen_noir",
+      "tag": "0000_create_ashes",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1781949364336,
+      "tag": "0001_create_borrow_records",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1781949364337,
+      "tag": "0002_create_events",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1781949364338,
+      "tag": "0003_create_inventory",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1781949364339,
+      "tag": "0004_create_menu_items",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1781949364340,
+      "tag": "0005_create_monks",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1781949364341,
+      "tag": "0006_create_ranks",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1781949364342,
+      "tag": "0007_create_settings",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1781949364343,
+      "tag": "0008_create_transactions",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1781949364344,
+      "tag": "0009_create_users",
       "breakpoints": true
     }
   ]
