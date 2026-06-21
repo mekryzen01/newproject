@@ -11,13 +11,8 @@ import {
   Edit,
   ClipboardList,
   UserCheck,
-  AlertTriangle,
-  Calendar,
   CheckCircle,
-  CheckCircle2,
-  HelpCircle,
-  Phone,
-  Info
+  Phone
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useInventoryController } from '@/app/Controllers/useInventoryController';
@@ -190,6 +185,7 @@ export default function InventoryManagement() {
               >
                 <div className="flex gap-4 items-start mb-4">
                   {item.image_url && (
+                    /* eslint-disable-next-line @next/next/no-img-element */
                     <img
                       src={item.image_url}
                       className="w-16 h-16 rounded-xl object-cover border border-amber-200/40 dark:border-amber-950/30"
@@ -353,7 +349,7 @@ export default function InventoryManagement() {
       {isItemModalOpen && currentItem && (
         <div className="fixed inset-0 flex items-center justify-center z-50 bg-black/50 backdrop-blur-sm p-4">
           <div className="bg-white dark:bg-[#15110a] rounded-2xl border border-amber-200/50 dark:border-amber-950/40 shadow-2xl w-full max-w-md overflow-hidden animate-scale-up">
-            <div className="h-1.5 bg-gradient-to-r from-amber-400 to-amber-600" />
+            <div className="h-1.5 bg-linear-to-r from-amber-400 to-amber-600" />
             <div className="p-6 border-b border-amber-100 dark:border-amber-950 flex justify-between items-center bg-amber-50/20 dark:bg-amber-950/5">
               <h3 className="font-bold text-base text-amber-900 dark:text-amber-200 font-heading">
                 {currentItem.name ? 'แก้ไขข้อมูลครุภัณฑ์วัด' : 'ลงทะเบียนบันทึกทรัพย์สินครุภัณฑ์ใหม่'}
@@ -426,7 +422,7 @@ export default function InventoryManagement() {
                 <label className="text-xs font-bold text-amber-900/80 dark:text-amber-300">สภาพปัจจุบัน</label>
                 <select
                   value={currentItem.condition || 'excellent'}
-                  onChange={(e) => updateItemFormFields('condition', e.target.value as any)}
+                  onChange={(e) => updateItemFormFields('condition', e.target.value as 'excellent' | 'good' | 'fair' | 'damaged')}
                   className="w-full px-3 py-2 text-xs rounded-lg border border-amber-200 dark:border-amber-950 bg-white dark:bg-[#110e08] text-amber-950 dark:text-amber-100 outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 cursor-pointer"
                 >
                   <option value="excellent">ดีเยี่ยม (ของใหม่มือหนึ่ง)</option>
@@ -464,7 +460,7 @@ export default function InventoryManagement() {
       {isBorrowModalOpen && currentBorrow && (
         <div className="fixed inset-0 flex items-center justify-center z-50 bg-black/50 backdrop-blur-sm p-4">
           <div className="bg-white dark:bg-[#15110a] rounded-2xl border border-amber-200/50 dark:border-amber-950/40 shadow-2xl w-full max-w-md overflow-hidden animate-scale-up">
-            <div className="h-1.5 bg-gradient-to-r from-amber-400 to-amber-600" />
+            <div className="h-1.5 bg-linear-to-r from-amber-400 to-amber-600" />
             <div className="p-6 border-b border-amber-100 dark:border-amber-950 flex justify-between items-center bg-amber-50/20 dark:bg-amber-950/5">
               <h3 className="font-bold text-base text-amber-900 dark:text-amber-200 font-heading">
                 ลงสมุดบันทึกการยืมทรัพย์สินวัด

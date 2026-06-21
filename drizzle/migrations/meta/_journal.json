@@ -71,6 +71,20 @@
       "when": 1781949364344,
       "tag": "0009_create_users",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1781949364345,
+      "tag": "0010_setup_rls_policies",
+      "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1782013361221,
+      "tag": "0011_slimy_changeling",
+      "breakpoints": true
     }
   ]
 }

@@ -29,6 +29,7 @@ export default function MonksManagement() {
   const [detailedMonk, setDetailedMonk] = React.useState<Monk | null>(null);
   const [expandedMonkIds, setExpandedMonkIds] = React.useState<Record<string, boolean>>({});
   const [personTypeFilter, setPersonTypeFilter] = React.useState<string>('all');
+  const [isUploadingPhoto, setIsUploadingPhoto] = React.useState(false);
 
   const toggleExpandMonk = (id: string) => {
     setExpandedMonkIds((prev) => ({ ...prev, [id]: !prev[id] }));
@@ -218,7 +219,7 @@ export default function MonksManagement() {
                     )}
                     <div>
                       <h3 className="font-bold text-base text-amber-950 dark:text-amber-100 flex items-center gap-1.5 font-heading">
-                        {monk.name}234234
+                        {monk.name}
                       </h3>
                       {monk.chaya !== '-' && (
                         <p className="text-xs text-amber-700/60 dark:text-amber-400/60 italic font-semibold">
@@ -487,13 +488,15 @@ export default function MonksManagement() {
                     />
                   </div>
 
-                  {/* Profile Photo — file upload to base64 */}
+                  {/* Profile Photo — file upload to Google Drive with Local Fallback */}
                   <div className="col-span-2 space-y-2">
-                    <label className="text-xs font-bold text-amber-900/80 dark:text-amber-300">\u0e23\u0e39\u0e1b\u0e16\u0e48\u0e32\u0e22\u0e1b\u0e23\u0e30\u0e08\u0e33\u0e15\u0e31\u0e27 (Profile Image)</label>
+                    <label className="text-xs font-bold text-amber-900/80 dark:text-amber-300">รูปถ่ายประจำตัว (รองรับ JPG, PNG, WEBP)</label>
                     <div className="flex items-center gap-4">
                       {/* Preview */}
                       <div className="w-16 h-16 rounded-xl border-2 border-amber-200 dark:border-amber-950 bg-amber-50/30 dark:bg-amber-950/10 overflow-hidden flex items-center justify-center shrink-0 text-amber-300 dark:text-amber-700">
-                        {currentMonk.image_url ? (
+                        {isUploadingPhoto ? (
+                          <Loader2 className="size-6 animate-spin text-amber-500" />
+                        ) : currentMonk.image_url ? (
                           <Image
                             src={currentMonk.image_url}
                             width={64}
@@ -510,36 +513,58 @@ export default function MonksManagement() {
                       <div className="flex-1 space-y-1.5">
                         <label
                           htmlFor="monk-photo-upload"
-                          className="flex items-center gap-2 px-3 py-2 rounded-lg border border-dashed border-amber-400 dark:border-amber-700 bg-amber-50/20 dark:bg-amber-950/10 text-xs font-bold text-amber-700 dark:text-amber-400 cursor-pointer hover:bg-amber-500/10 transition-colors"
+                          className={`flex items-center gap-2 px-3 py-2 rounded-lg border border-dashed border-amber-400 dark:border-amber-700 bg-amber-50/20 dark:bg-amber-950/10 text-xs font-bold text-amber-700 dark:text-amber-400 cursor-pointer hover:bg-amber-500/10 transition-colors ${
+                            isUploadingPhoto ? 'opacity-50 cursor-not-allowed' : ''
+                          }`}
                         >
                           <svg xmlns="http://www.w3.org/2000/svg" className="size-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="m21 15-5-5L5 21"/></svg>
-                          <span>\u0e40\u0e25\u0e37\u0e2d\u0e01\u0e44\u0e1f\u0e25\u0e4c\u0e23\u0e39\u0e1b\u0e20\u0e32\u0e1e...</span>
+                          <span>{isUploadingPhoto ? 'กำลังอัพโหลด...' : 'เลือกรูปภาพ...'}</span>
                         </label>
                         <input
                           id="monk-photo-upload"
                           type="file"
                           accept="image/*"
                           className="hidden"
-                          onChange={(e) => {
+                          disabled={isUploadingPhoto}
+                          onChange={async (e) => {
                             const file = e.target.files?.[0];
                             if (!file) return;
-                            const reader = new FileReader();
-                            reader.onload = (ev) => {
-                              updateFormFields('image_url', ev.target?.result as string);
-                            };
-                            reader.readAsDataURL(file);
+
+                            setIsUploadingPhoto(true);
+                            try {
+                              const formData = new FormData();
+                              formData.append('file', file);
+
+                              const res = await fetch('/api/upload/drive', {
+                                method: 'POST',
+                                body: formData
+                              });
+
+                              const data = await res.json();
+                              if (data.success && data.path) {
+                                updateFormFields('image_url', data.path);
+                              } else {
+                                alert(data.error || 'ไม่สามารถอัพโหลดรูปภาพได้');
+                              }
+                            } catch (err: any) {
+                              console.error('Upload photo error:', err);
+                              alert('เกิดข้อผิดพลาดในการเชื่อมต่อเซิร์ฟเวอร์เพื่ออัพโหลดรูปภาพ');
+                            } finally {
+                              setIsUploadingPhoto(false);
+                            }
                           }}
                         />
                         {currentMonk.image_url && (
                           <button
                             type="button"
+                            disabled={isUploadingPhoto}
                             onClick={() => updateFormFields('image_url', '')}
-                            className="text-[10px] text-red-500 hover:underline cursor-pointer block"
+                            className="text-[10px] text-red-500 hover:underline cursor-pointer block disabled:opacity-50"
                           >
-                            \u0e25\u0e1a\u0e23\u0e39\u0e1b\u0e2d\u0e2d\u0e01
+                            ลบรูปภาพออก
                           </button>
                         )}
-                        <p className="text-[10px] text-amber-600/50 dark:text-amber-500/40">\u0e23\u0e2d\u0e07\u0e23\u0e31\u0e1a JPG, PNG, WEBP \u2014 \u0e40\u0e01\u0e47\u0e1a\u0e40\u0e1b\u0e47\u0e19 base64 \u0e43\u0e19\u0e40\u0e04\u0e23\u0e37\u0e48\u0e2d\u0e07</p>
+                        <p className="text-[10px] text-amber-600/50 dark:text-amber-500/40">รองรับไฟล์รูปภาพประเภท JPG, PNG และ WEBP โดยไฟล์จะอัพโหลดขึ้น Google Drive ของระบบ และจัดเก็บลิงก์ทางเข้าในฐานข้อมูล</p>
                       </div>
                     </div>
                   </div>

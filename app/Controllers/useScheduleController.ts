@@ -78,8 +78,19 @@ export function useScheduleController() {
       onConfirm: async () => {
         setConfirmState(null);
         try {
+          const eventToDelete = events.find(e => e.id === id);
+          
           await db.events.delete(id);
           loadData();
+
+          if (eventToDelete) {
+            fetch('/api/notifications/line', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ event: eventToDelete, action: 'delete' })
+            }).catch(err => console.error('Failed to send LINE notification on delete:', err));
+          }
+
           setAlertState({
             show: true,
             variant: 'success',
@@ -105,8 +116,17 @@ export function useScheduleController() {
 
     setIsSaving(true);
     try {
+      const isEdit = events.some(ev => ev.id === currentEvent.id);
+      
       await db.events.save(currentEvent as TempleEvent);
       setIsModalOpen(false);
+
+      fetch('/api/notifications/line', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ event: currentEvent as TempleEvent, action: isEdit ? 'update' : 'create' })
+      }).catch(err => console.error('Failed to send LINE notification on save:', err));
+
       setCurrentEvent(null);
       loadData();
       setAlertState({

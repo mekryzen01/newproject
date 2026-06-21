@@ -39,8 +39,7 @@ export default function DashboardLayout({
   const router = useRouter();
   const pathname = usePathname();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-  const [user, setUser] = useState<any>(null);
-  const { permissions, roleLabel, roleBadgeClass, role } = usePermission();
+  const { user, permissions, roleLabel, roleBadgeClass, role, loaded } = usePermission();
   const [mounted, setMounted] = useState(false);
   const [theme, setTheme] = useState<'light' | 'dark'>('light');
   
@@ -175,22 +174,21 @@ export default function DashboardLayout({
       router.push('/login');
       return;
     }
-    const sessionUser = JSON.parse(sessionStr)?.user || { name: 'ผู้ดูแลระบบวัด' };
-    setUser(sessionUser);
 
-    // Route guard: enforce role-based access
-    const userRole = sessionUser.role ?? 'staff';
-    if (ADMIN_ONLY_PATHS.includes(pathname) && userRole !== 'admin') {
-      router.replace('/dashboard');
-      return;
-    }
-    if (ADMIN_MENU_PATHS.includes(pathname) && userRole !== 'admin') {
-      router.replace('/dashboard');
-      return;
-    }
-    if (EDITOR_PLUS_PATHS.includes(pathname) && userRole === 'staff') {
-      router.replace('/dashboard');
-      return;
+    // Route guard: enforce role-based access reactively
+    if (loaded) {
+      if (ADMIN_ONLY_PATHS.includes(pathname) && role !== 'admin') {
+        router.replace('/dashboard');
+        return;
+      }
+      if (ADMIN_MENU_PATHS.includes(pathname) && role !== 'admin') {
+        router.replace('/dashboard');
+        return;
+      }
+      if (EDITOR_PLUS_PATHS.includes(pathname) && role === 'staff') {
+        router.replace('/dashboard');
+        return;
+      }
     }
 
     // Theme initialization
@@ -216,7 +214,7 @@ export default function DashboardLayout({
       window.removeEventListener('temple_menu_changed', handleMenuChange);
       window.removeEventListener('temple_settings_changed', handleMenuChange);
     };
-  }, [router, pathname]);
+  }, [router, pathname, role, loaded]);
 
   const toggleTheme = () => {
     const nextTheme = theme === 'light' ? 'dark' : 'light';

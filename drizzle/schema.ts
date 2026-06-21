@@ -102,6 +102,9 @@ export const settings = pgTable('settings', {
   logoIcon: text('logo_icon').notNull(),
   themeColor: text('theme_color').notNull(),
   logoUrl: text('logo_url'),
+  lineNotifyToken: text('line_notify_token'),
+  lineChannelAccessToken: text('line_channel_access_token'),
+  lineGroupId: text('line_group_id'),
 });
 
 export const ranks = pgTable('ranks', {
@@ -112,4 +115,67 @@ export const ranks = pgTable('ranks', {
   order: integer('order').notNull(),
 });
 
+// ศาลา (Halls)
+export const salas = pgTable('salas', {
+  id: varchar('id', { length: 256 }).primaryKey(),
+  shortName: text('short_name').notNull(),
+  fullName: text('full_name'),
+  capacity: integer('capacity'),
+  description: text('description'),
+  isActive: boolean('is_active').notNull().default(true),
+});
 
+// การจองศาลา (Hall Bookings)
+export const salaBookings = pgTable('sala_bookings', {
+  id: varchar('id', { length: 256 }).primaryKey(),
+  salaId: varchar('sala_id', { length: 256 }).notNull(),
+  eventTitle: text('event_title').notNull(),
+  eventType: text('event_type').notNull(), // 'funeral' | 'ceremony' | 'wedding' | 'other'
+  bookerName: text('booker_name').notNull(),
+  bookerPhone: text('booker_phone').notNull(),
+  startDate: text('start_date').notNull(),
+  endDate: text('end_date').notNull(),
+  numDays: integer('num_days').notNull(),
+  status: text('status').notNull().default('confirmed'), // 'pending' | 'confirmed' | 'completed' | 'cancelled'
+  notes: text('notes'),
+  quotationId: varchar('quotation_id', { length: 256 }),
+  createdAt: text('created_at').notNull(),
+});
+
+// รายการค่าใช้จ่ายมาตรฐาน (Cost Catalog)
+export const costItems = pgTable('cost_items', {
+  id: varchar('id', { length: 256 }).primaryKey(),
+  name: text('name').notNull(),
+  amount: integer('amount').notNull(),
+  category: text('category').notNull(), // 'required' | 'optional'
+  description: text('description'),
+  isActive: boolean('is_active').notNull().default(true),
+  sortOrder: integer('sort_order').notNull().default(0),
+});
+
+// ใบเสนอราคา (Quotations)
+export const quotations = pgTable('quotations', {
+  id: varchar('id', { length: 256 }).primaryKey(),
+  quotationNo: text('quotation_no').notNull(),
+  bookingId: varchar('booking_id', { length: 256 }),
+  customerName: text('customer_name').notNull(),
+  customerPhone: text('customer_phone').notNull(),
+  customerAddress: text('customer_address'),
+  eventType: text('event_type').notNull(),
+  numDays: integer('num_days').notNull(),
+  salaId: varchar('sala_id', { length: 256 }),
+  items: jsonb('items').$type<QuotationLineItem[]>().notNull(),
+  totalAmount: integer('total_amount').notNull(),
+  status: text('status').notNull().default('draft'), // 'draft' | 'sent' | 'approved' | 'cancelled'
+  notes: text('notes'),
+  createdAt: text('created_at').notNull(),
+});
+
+// Type for quotation line items stored in JSONB
+export interface QuotationLineItem {
+  cost_item_id: string;
+  name: string;
+  amount: number;
+  quantity: number;
+  subtotal: number;
+}

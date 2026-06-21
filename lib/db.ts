@@ -94,6 +94,66 @@ export interface AshesRecord {
   notes?: string;
 }
 
+export interface Sala {
+  id: string;
+  short_name: string;
+  full_name?: string;
+  capacity?: number;
+  description?: string;
+  is_active: boolean;
+}
+
+export interface SalaBooking {
+  id: string;
+  sala_id: string;
+  event_title: string;
+  event_type: 'funeral' | 'ceremony' | 'wedding' | 'other';
+  booker_name: string;
+  booker_phone: string;
+  start_date: string;
+  end_date: string;
+  num_days: number;
+  status: 'pending' | 'confirmed' | 'completed' | 'cancelled';
+  notes?: string;
+  quotation_id?: string;
+  created_at: string;
+}
+
+export interface CostItem {
+  id: string;
+  name: string;
+  amount: number;
+  category: 'required' | 'optional';
+  description?: string;
+  is_active: boolean;
+  sort_order: number;
+}
+
+export interface QuotationLineItem {
+  cost_item_id: string;
+  name: string;
+  amount: number;
+  quantity: number;
+  subtotal: number;
+}
+
+export interface Quotation {
+  id: string;
+  quotation_no: string;
+  booking_id?: string;
+  customer_name: string;
+  customer_phone: string;
+  customer_address?: string;
+  event_type: string;
+  num_days: number;
+  sala_id?: string;
+  items: QuotationLineItem[];
+  total_amount: number;
+  status: 'draft' | 'sent' | 'approved' | 'cancelled';
+  notes?: string;
+  created_at: string;
+}
+
 export interface MenuItem {
   id: string;
   name: string;
@@ -110,6 +170,9 @@ export interface TempleSettings {
   logoIcon: string;
   themeColor: 'amber' | 'emerald' | 'indigo' | 'rose' | 'slate';
   logoUrl?: string;
+  lineNotifyToken?: string;
+  lineChannelAccessToken?: string;
+  lineGroupId?: string;
 }
 
 // Supabase Configuration
@@ -135,6 +198,9 @@ export interface DBTempleSettings {
   logo_icon: string;
   theme_color: 'amber' | 'emerald' | 'indigo' | 'rose' | 'slate';
   logo_url?: string;
+  line_notify_token?: string;
+  line_channel_access_token?: string;
+  line_group_id?: string;
 }
 
 export interface DBSystemUser {
@@ -168,20 +234,26 @@ const mapMenuItemToDB = (m: MenuItem): DBMenuItem => ({
   parent_id: m.parentId
 });
 
-const mapSettingsFromDB = (s: DBTempleSettings): TempleSettings => ({
+const mapSettingsFromDB = (s: any): TempleSettings => ({
   templeName: s.temple_name,
   abbr: s.abbr,
   logoIcon: s.logo_icon,
   themeColor: s.theme_color,
-  logoUrl: s.logo_url
+  logoUrl: s.logo_url,
+  lineNotifyToken: s.line_notify_token,
+  lineChannelAccessToken: s.line_channel_access_token,
+  lineGroupId: s.line_group_id
 });
 
-const mapSettingsToDB = (s: TempleSettings): DBTempleSettings => ({
+const mapSettingsToDB = (s: TempleSettings): any => ({
   temple_name: s.templeName,
   abbr: s.abbr,
   logo_icon: s.logoIcon,
   theme_color: s.themeColor,
-  logo_url: s.logoUrl
+  logo_url: s.logoUrl,
+  line_notify_token: s.lineNotifyToken,
+  line_channel_access_token: s.lineChannelAccessToken,
+  line_group_id: s.lineGroupId
 });
 
 const mapSystemUserFromDB = (u: DBSystemUser): SystemUser => ({
@@ -210,14 +282,17 @@ const DEFAULT_MENU_ITEMS: MenuItem[] = [
   { id: 'menu-2', name: 'พระภิกษุและสามเณร', href: '/dashboard/monks', iconName: 'Users', isActive: true, order: 2, parentId: null },
   { id: 'menu-3', name: 'การเงินและบัญชีวัด', href: '#', iconName: 'DollarSign', isActive: true, order: 3, parentId: null },
   { id: 'menu-3-1', name: 'บัญชีรายรับ-รายจ่าย', href: '/dashboard/finance', iconName: 'DollarSign', isActive: true, order: 1, parentId: 'menu-3' },
+  { id: 'menu-3-2', name: 'จัดการรายการค่าใช้จ่าย', href: '/dashboard/cost-items', iconName: 'DollarSign', isActive: true, order: 2, parentId: 'menu-3' },
+  { id: 'menu-3-3', name: 'ระบบใบเสนอราคา', href: '/dashboard/quotations', iconName: 'DollarSign', isActive: true, order: 3, parentId: 'menu-3' },
   { id: 'menu-4', name: 'ตารางงานนิมนต์และศาสนพิธี', href: '/dashboard/schedule', iconName: 'Calendar', isActive: true, order: 4, parentId: null },
-  { id: 'menu-5', name: 'คลังและครุภัณฑ์วัด', href: '#', iconName: 'Package', isActive: true, order: 5, parentId: null },
+  { id: 'menu-10', name: 'ระบบจองศาลา', href: '/dashboard/sala', iconName: 'Calendar', isActive: true, order: 5, parentId: null },
+  { id: 'menu-5', name: 'คลังและครุภัณฑ์วัด', href: '#', iconName: 'Package', isActive: true, order: 6, parentId: null },
   { id: 'menu-5-1', name: 'ครุภัณฑ์และการยืม-คืน', href: '/dashboard/inventory', iconName: 'Package', isActive: true, order: 1, parentId: 'menu-5' },
   { id: 'menu-5-2', name: 'ทะเบียนฝากกระดูก / อัฐิ', href: '/dashboard/ashes', iconName: 'Archive', isActive: true, order: 2, parentId: 'menu-5' },
-  { id: 'menu-6', name: 'จัดการเมนูระบบ', href: '/dashboard/menu-manager', iconName: 'Activity', isActive: true, order: 6, parentId: null },
-  { id: 'menu-7', name: 'ตั้งค่าระบบวัด', href: '/dashboard/settings', iconName: 'Settings', isActive: true, order: 7, parentId: null },
-  { id: 'menu-8', name: 'จัดการสมณศักดิ์/หน้าที่', href: '/dashboard/ranks', iconName: 'Award', isActive: true, order: 8, parentId: null },
-  { id: 'menu-9', name: 'จัดการผู้ใช้งาน', href: '/dashboard/users', iconName: 'User', isActive: true, order: 9, parentId: null }
+  { id: 'menu-6', name: 'จัดการเมนูระบบ', href: '/dashboard/menu-manager', iconName: 'Activity', isActive: true, order: 7, parentId: null },
+  { id: 'menu-7', name: 'ตั้งค่าระบบวัด', href: '/dashboard/settings', iconName: 'Settings', isActive: true, order: 8, parentId: null },
+  { id: 'menu-8', name: 'จัดการสมณศักดิ์/หน้าที่', href: '/dashboard/ranks', iconName: 'Award', isActive: true, order: 9, parentId: null },
+  { id: 'menu-9', name: 'จัดการผู้ใช้งาน', href: '/dashboard/users', iconName: 'User', isActive: true, order: 10, parentId: null }
 ];
 
 // DB Adapter
@@ -449,6 +524,92 @@ export const db = {
       const { error } = await supabase.from('users').delete().eq('id', id);
       if (error) throw error;
       return true;
+    }
+  },
+
+  // Salas API (ศาลา)
+  salas: {
+    async list(): Promise<Sala[]> {
+      const { data, error } = await supabase.from('salas').select('*').order('short_name', { ascending: true });
+      if (error) throw error;
+      return data as Sala[];
+    },
+    async save(sala: Sala): Promise<Sala> {
+      const { data, error } = await supabase.from('salas').upsert(sala).select().single();
+      if (error) throw error;
+      return data as Sala;
+    },
+    async delete(id: string): Promise<boolean> {
+      const { error } = await supabase.from('salas').delete().eq('id', id);
+      if (error) throw error;
+      return true;
+    }
+  },
+
+  // Sala Bookings API (การจองศาลา)
+  salaBookings: {
+    async list(): Promise<SalaBooking[]> {
+      const { data, error } = await supabase.from('sala_bookings').select('*').order('start_date', { ascending: true });
+      if (error) throw error;
+      return data as SalaBooking[];
+    },
+    async save(booking: SalaBooking): Promise<SalaBooking> {
+      const { data, error } = await supabase.from('sala_bookings').upsert(booking).select().single();
+      if (error) throw error;
+      return data as SalaBooking;
+    },
+    async delete(id: string): Promise<boolean> {
+      const { error } = await supabase.from('sala_bookings').delete().eq('id', id);
+      if (error) throw error;
+      return true;
+    }
+  },
+
+  // Cost Items API (รายการค่าใช้จ่าย)
+  costItems: {
+    async list(): Promise<CostItem[]> {
+      const { data, error } = await supabase.from('cost_items').select('*').order('sort_order', { ascending: true });
+      if (error) throw error;
+      return data as CostItem[];
+    },
+    async save(item: CostItem): Promise<CostItem> {
+      const { data, error } = await supabase.from('cost_items').upsert(item).select().single();
+      if (error) throw error;
+      return data as CostItem;
+    },
+    async delete(id: string): Promise<boolean> {
+      const { error } = await supabase.from('cost_items').delete().eq('id', id);
+      if (error) throw error;
+      return true;
+    }
+  },
+
+  // Quotations API (ใบเสนอราคา)
+  quotations: {
+    async list(): Promise<Quotation[]> {
+      const { data, error } = await supabase.from('quotations').select('*').order('created_at', { ascending: false });
+      if (error) throw error;
+      return data as Quotation[];
+    },
+    async save(quotation: Quotation): Promise<Quotation> {
+      const { data, error } = await supabase.from('quotations').upsert(quotation).select().single();
+      if (error) throw error;
+      return data as Quotation;
+    },
+    async delete(id: string): Promise<boolean> {
+      const { error } = await supabase.from('quotations').delete().eq('id', id);
+      if (error) throw error;
+      return true;
+    },
+    async getNextNo(): Promise<string> {
+      const year = new Date().getFullYear() + 543; // Buddhist Era
+      const prefix = `QT-${year}-`;
+      const { data } = await supabase.from('quotations').select('quotation_no').like('quotation_no', `${prefix}%`).order('quotation_no', { ascending: false }).limit(1);
+      if (data && data.length > 0) {
+        const lastNo = parseInt(data[0].quotation_no.replace(prefix, ''), 10);
+        return `${prefix}${String(lastNo + 1).padStart(3, '0')}`;
+      }
+      return `${prefix}001`;
     }
   }
 };

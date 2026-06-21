@@ -20,6 +20,14 @@ import { usePermission } from '@/lib/usePermission';
 
 export default function SettingsPage() {
   const { permissions } = usePermission();
+  const [origin, setOrigin] = React.useState('https://your-domain.com');
+
+  React.useEffect(() => {
+    if (typeof window !== 'undefined') {
+      setOrigin(window.location.origin);
+    }
+  }, []);
+
   const {
     settings,
     loading,
@@ -179,6 +187,59 @@ export default function SettingsPage() {
                 />
               </div>
             )}
+          </div>
+
+          {/* LINE Official Account (Messaging API) Configuration */}
+          <div className="space-y-4 border-t border-amber-100 dark:border-amber-950/40 pt-6">
+            <h4 className="font-extrabold text-sm text-amber-950 dark:text-amber-200 flex items-center gap-1.5 font-heading">
+              💬 ตั้งค่าการแจ้งเตือนผ่าน LINE Official Account (Messaging API)
+            </h4>
+            
+            {/* Channel Access Token */}
+            <div className="space-y-1.5">
+              <label className="text-xs font-bold text-amber-900/80 dark:text-amber-300">
+                Channel Access Token (Long-lived)
+              </label>
+              <input
+                type="text"
+                disabled={!permissions.canEditSettings}
+                value={settings.lineChannelAccessToken || ''}
+                onChange={(e) => updateSettingField('lineChannelAccessToken', e.target.value)}
+                placeholder="กรอก Channel Access Token จาก LINE Developers Console..."
+                className="w-full px-4 py-2.5 text-xs rounded-xl border border-amber-200 dark:border-amber-950 bg-white dark:bg-[#110e08] text-amber-950 dark:text-amber-100 outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 disabled:opacity-60 disabled:cursor-not-allowed font-mono"
+              />
+            </div>
+
+            {/* Group ID */}
+            <div className="space-y-1.5">
+              <label className="text-xs font-bold text-amber-900/80 dark:text-amber-300">
+                LINE Group ID / Chat ID (ไอดีกลุ่มแชทที่ต้องการรับข้อความ)
+              </label>
+              <input
+                type="text"
+                disabled={!permissions.canEditSettings}
+                value={settings.lineGroupId || ''}
+                onChange={(e) => updateSettingField('lineGroupId', e.target.value)}
+                placeholder="กรอก Group ID เช่น Ca5f... (ระบบจะบันทึกให้อัตโนมัติเมื่อเชิญบอทเข้ากลุ่ม)"
+                className="w-full px-4 py-2.5 text-xs rounded-xl border border-amber-200 dark:border-amber-950 bg-white dark:bg-[#110e08] text-amber-950 dark:text-amber-100 outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 disabled:opacity-60 disabled:cursor-not-allowed font-mono"
+              />
+              <p className="text-[10px] text-amber-800/40 dark:text-amber-500/40 leading-normal">
+                * <strong>ตั้งค่าอัตโนมัติ:</strong> เพียงนำบอทของ LINE OA นี้เชิญเข้าร่วมกลุ่มแชทวัด ระบบจะทำการดักจับและอัปเดตไอดีกลุ่มแชทลงในช่องนี้ให้โดยอัตโนมัติ!
+              </p>
+            </div>
+
+            {/* Webhook Configuration Guide */}
+            <div className="bg-amber-500/5 border border-amber-500/20 p-4 rounded-xl space-y-2 text-[11px] text-amber-900/80 dark:text-amber-400">
+              <p className="font-extrabold">🔗 ลิงก์สำหรับตั้งค่า Webhook (ใน LINE Developers):</p>
+              <div className="flex gap-2">
+                <code className="bg-amber-100/50 dark:bg-amber-950/40 p-2 rounded text-xs select-all break-all flex-1 border border-amber-200/30">
+                  {origin}/api/line/webhook
+                </code>
+              </div>
+              <p className="leading-normal">
+                * <strong>ขั้นตอนการตั้งค่า:</strong> เข้าเว็บ <a href="https://developers.line.biz/" target="_blank" rel="noopener noreferrer" className="underline text-amber-600 hover:text-amber-700 font-bold">LINE Developers</a> &gt; เลือก Channel ของคุณ &gt; แท็บ <strong>Messaging API</strong> &gt; เปิดใช้งาน <strong>Use webhook</strong> &gt; วางลิงก์ Webhook URL ด้านบนนี้ลงไปแล้วกด Verify
+              </p>
+            </div>
           </div>
 
           {/* Logo Icon selection */}

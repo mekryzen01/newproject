@@ -9,3 +9,5 @@ CREATE TABLE "ashes" (
 	"deposited_by" text NOT NULL,
 	"notes" text
 );
+-- Row Level Security
+ALTER TABLE "ashes" ENABLE ROW LEVEL SECURITY;
