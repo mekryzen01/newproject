@@ -30,7 +30,7 @@ export async function POST(req: Request) {
         const oauth2Client = new google.auth.OAuth2(
           process.env.GOOGLE_CLIENT_ID,
           process.env.GOOGLE_CLIENT_SECRET,
-          'https://developers.google.com/oauthplayground' // Redirect URI used in Google OAuth Playground
+          'https://developers.google.com/oauthplayground'
         );
 
         oauth2Client.setCredentials({
@@ -65,7 +65,6 @@ export async function POST(req: Request) {
           },
         });
 
-        // Use direct hotlink URL for displaying images in <img> tags
         const viewLink = `https://docs.google.com/uc?export=view&id=${fileId}`;
 
         console.log(`[Google Drive] Successfully uploaded file "${file.name}" via OAuth2 to folder "${folderId || 'Root'}". File ID: ${fileId}`);
@@ -78,7 +77,6 @@ export async function POST(req: Request) {
         });
       } catch (oauthError: any) {
         console.error('[Google Drive OAuth2 Error] Failed uploading via OAuth2:', oauthError);
-        // If OAuth fails, we can fall back to Service Account or Local Fallback
       }
     }
 
@@ -154,7 +152,7 @@ export async function POST(req: Request) {
       success: true,
       path: localUrl,
       source: 'local_fallback',
-      message: 'เก็บไฟล์ไว้ในโฟลเดอร์เครื่องเซิร์ฟเวอร์เนื่องจากไม่ได้ตั้งค่า Google Drive หรือเกิดข้อผิดพลาดในการเชื่อมต่อ'
+      message: 'เก็บไฟล์ไว้ในโฟลเดอร์เครื่องเซิร์ฟเวอร์เนื่องจากเกิดข้อผิดพลาดในการเชื่อมต่อ Google Drive'
     });
 
   } catch (error: any) {

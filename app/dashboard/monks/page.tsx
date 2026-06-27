@@ -564,7 +564,7 @@ export default function MonksManagement() {
                             ลบรูปภาพออก
                           </button>
                         )}
-                        <p className="text-[10px] text-amber-600/50 dark:text-amber-500/40">รองรับไฟล์รูปภาพประเภท JPG, PNG และ WEBP โดยไฟล์จะอัพโหลดขึ้น Google Drive ของระบบ และจัดเก็บลิงก์ทางเข้าในฐานข้อมูล</p>
+                        <p className="text-[10px] text-amber-600/50 dark:text-amber-500/40">รองรับไฟล์รูปภาพประเภท JPG, PNG และ WEBP โดยไฟล์จะอัปโหลดขึ้น Google Drive ของระบบ และจัดเก็บลิงก์ทางเข้าในฐานข้อมูล</p>
                       </div>
                     </div>
                   </div>

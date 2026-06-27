@@ -1,0 +1,21 @@
+{
+  "search.exclude": {
+    "**/node_modules": true,
+    "**/.next": true,
+    "**/dist": true
+  },
+  "files.watcherExclude": {
+    "**/node_modules/**": true,
+    "**/.next/**": true
+  },
+  "intelephense.files.exclude": [
+    "**/node_modules/**",
+    "**/vendor/**",
+    "**/.git/**"
+  ],
+  "php.validate.enable": false,
+  "php.problems.exclude": {
+    "**/node_modules/**": true,
+    "**/vendor/**": true
+  }
+}
