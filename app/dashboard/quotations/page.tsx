@@ -25,6 +25,7 @@ import { Button } from '@/components/ui/button';
 import { CustomDialog } from '@/components/ui/custom-dialog';
 import { usePermission } from '@/lib/usePermission';
 import { db, Quotation, CostItem, Sala, QuotationLineItem } from '@/lib/db';
+import { formatThaiDate } from '@/lib/utils';
 
 export default function QuotationsManagement() {
   const { permissions } = usePermission();
@@ -388,7 +389,7 @@ export default function QuotationsManagement() {
             </div>
             <div className="space-y-1 text-right">
               <div><strong>เลขที่ใบเสนอราคา:</strong> {selectedQuotation.quotation_no}</div>
-              <div><strong>วันที่จัดทำ:</strong> {new Date(selectedQuotation.created_at).toLocaleDateString('th-TH')}</div>
+              <div><strong>วันที่จัดทำ:</strong> {formatThaiDate(selectedQuotation.created_at)}</div>
               <div><strong>ประเภทงานพิธี:</strong> {getEventTypeLabel(selectedQuotation.event_type)}</div>
               {selectedQuotation.sala_id && (
                 <div><strong>ศาสนสถาน:</strong> {salas.find(s => s.id === selectedQuotation.sala_id)?.short_name || 'ไม่ระบุ'}</div>

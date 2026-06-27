@@ -20,8 +20,11 @@ import {
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { CustomDialog } from '@/components/ui/custom-dialog';
-import { usePermission } from '@/lib/usePermission';
 import { db, Sala, SalaBooking, TempleEvent } from '@/lib/db';
+import { formatThaiDate } from '@/lib/utils';
+import { usePermission } from '@/lib/usePermission';
+import { ThaiDatePicker } from '@/components/ui/thai-date-picker';
+import { checkWanKaoKong } from '@/lib/lanna-calendar';
 
 export default function SalaManagement() {
   const { permissions } = usePermission();
@@ -222,6 +225,22 @@ export default function SalaManagement() {
       return;
     }
 
+    // Check Wan Kao Kong validation for funerals/cremations
+    const isFuneralType = currentBooking.event_type === 'funeral';
+    const isFuneralTitle = /เผาศพ|ฌาปนกิจ|ปลงศพ|งานศพ|สวดศพ|อภิธรรมศพ/g.test(currentBooking.event_title || '');
+    if (isFuneralType || isFuneralTitle) {
+      const lastDay = new Date(currentBooking.end_date);
+      const lastDayInfo = checkWanKaoKong(lastDay);
+      if (lastDayInfo.isWanKaoKong) {
+        showAlert(
+          'ผิดหลักประเพณีล้านนา',
+          `ไม่สามารถจองได้เนื่องจากวันสุดท้ายของการจัดงานศพ (${formatThaiDate(currentBooking.end_date)}) ตรงกับ "วันเก้ากอง" (วัน${lastDayInfo.daySign} เดือน ${lastDayInfo.lannaMonthName}) ซึ่งตามจารีตประเพณีล้านนาโบราณห้ามจัดพิธีเผาศพ/ฌาปนกิจเด็ดขาด`,
+          'warning'
+        );
+        return;
+      }
+    }
+
     // Calculate number of days (inclusive)
     const diffTime = Math.abs(end.getTime() - start.getTime());
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
@@ -240,7 +259,7 @@ export default function SalaManagement() {
         const salaName = salas.find(s => s.id === currentBooking.sala_id)?.short_name || 'ศาลา';
         showAlert(
           'ตรวจพบการจองซ้ำซ้อน', 
-          `ไม่สามารถจองได้เนื่องจาก ${salaName} มีการจองงาน "${conflict.event_title}" อยู่แล้วในช่วงเวลาดังกล่าว (${conflict.start_date} ถึง ${conflict.end_date})`, 
+          `ไม่สามารถจองได้เนื่องจาก ${salaName} มีการจองงาน "${conflict.event_title}" อยู่แล้วในช่วงเวลาดังกล่าว (${formatThaiDate(conflict.start_date)} ถึง ${formatThaiDate(conflict.end_date)})`, 
           'warning'
         );
         return;
@@ -265,7 +284,25 @@ export default function SalaManagement() {
         created_at: currentBooking.created_at || new Date().toISOString()
       };
 
+      const isNew = !currentBooking.id;
       await db.salaBookings.save(bookingToSave);
+      
+      // Trigger LINE Notification (Background)
+      const salaName = salas.find((s) => s.id === bookingToSave.sala_id)?.short_name || 'ไม่ระบุ';
+      fetch('/api/notifications/line', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          action: isNew ? 'create_booking' : 'update_booking',
+          event: {
+            ...bookingToSave,
+            sala_name: salaName
+          }
+        })
+      }).catch(err => console.error('Failed to send LINE notification on save booking:', err));
+
       setIsBookingModalOpen(false);
       showAlert('สำเร็จ', 'บันทึกข้อมูลการจองศาลาเรียบร้อยแล้ว', 'success');
       loadData();
@@ -277,6 +314,7 @@ export default function SalaManagement() {
   };
 
   const handleDeleteBooking = (id: string) => {
+    const bookingToDelete = bookings.find(b => b.id === id);
     setConfirmState({
       show: true,
       title: 'ยืนยันการยกเลิก/ลบการจอง',
@@ -285,6 +323,25 @@ export default function SalaManagement() {
         setConfirmState(null);
         try {
           await db.salaBookings.delete(id);
+          
+          if (bookingToDelete) {
+            // Trigger LINE Notification (Background)
+            const deletedSalaName = salas.find((s) => s.id === bookingToDelete.sala_id)?.short_name || 'ไม่ระบุ';
+            fetch('/api/notifications/line', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json'
+              },
+              body: JSON.stringify({
+                action: 'delete_booking',
+                event: {
+                  ...bookingToDelete,
+                  sala_name: deletedSalaName
+                }
+              })
+            }).catch(err => console.error('Failed to send LINE notification on delete booking:', err));
+          }
+
           showAlert('สำเร็จ', 'ลบการจองเรียบร้อยแล้ว', 'success');
           loadData();
         } catch (err: any) {
@@ -539,6 +596,7 @@ export default function SalaManagement() {
                   const isCurrentMonth = day.getMonth() === currentDate.getMonth();
                   const isToday = day.toDateString() === new Date().toDateString();
                   const isSelected = selectedDate && day.toDateString() === selectedDate.toDateString();
+                  const wanKaoKongInfo = checkWanKaoKong(day);
                   
                   // Bookings for this day
                   const dayBookings = bookings.filter(b => isDateBooked(day, b));
@@ -567,27 +625,37 @@ export default function SalaManagement() {
                           {day.getDate()}
                         </span>
                         
-                        {/* Day indicator dots */}
-                        {(dayBookings.length > 0 || dayEvents.length > 0) && (
-                          <div className="flex gap-0.5">
-                            {dayBookings.slice(0, 3).map((b, bIdx) => (
-                              <span
-                                key={bIdx}
-                                className={`w-1 h-1 rounded-full ${
-                                  b.event_type === 'funeral' ? 'bg-rose-500' :
-                                  b.event_type === 'ceremony' ? 'bg-amber-500' :
-                                  b.event_type === 'wedding' ? 'bg-emerald-500' : 'bg-indigo-500'
-                                }`}
-                              />
-                            ))}
-                            {dayEvents.slice(0, 3).map((e, eIdx) => (
-                              <span
-                                key={`edot-${eIdx}`}
-                                className="w-1 h-1 rounded-full bg-amber-400"
-                              />
-                            ))}
-                          </div>
-                        )}
+                        <div className="flex items-center gap-0.5">
+                          {wanKaoKongInfo.isWanKaoKong && (
+                            <span 
+                              className="text-[9px] leading-none text-red-500 font-extrabold cursor-help select-none animate-pulse"
+                              title={`วันเก้ากอง (ห้ามเผาศพ): วัน${wanKaoKongInfo.daySign} เดือน ${wanKaoKongInfo.lannaMonthName}`}
+                            >
+                              🚫
+                            </span>
+                          )}
+                          {/* Day indicator dots */}
+                          {(dayBookings.length > 0 || dayEvents.length > 0) && (
+                            <div className="flex gap-0.5">
+                              {dayBookings.slice(0, 3).map((b, bIdx) => (
+                                <span
+                                  key={bIdx}
+                                  className={`w-1 h-1 rounded-full ${
+                                    b.event_type === 'funeral' ? 'bg-rose-500' :
+                                    b.event_type === 'ceremony' ? 'bg-amber-500' :
+                                    b.event_type === 'wedding' ? 'bg-emerald-500' : 'bg-indigo-500'
+                                  }`}
+                                />
+                              ))}
+                              {dayEvents.slice(0, 3).map((e, eIdx) => (
+                                <span
+                                  key={`edot-${eIdx}`}
+                                  className="w-1 h-1 rounded-full bg-amber-400"
+                                />
+                              ))}
+                            </div>
+                          )}
+                        </div>
                       </div>
 
                       {/* Display first booking snippet */}
@@ -652,6 +720,20 @@ export default function SalaManagement() {
                 )}
               </div>
 
+              {/* If selected day is Wan Kao Kong, show alert banner */}
+              {selectedDate && (() => {
+                const info = checkWanKaoKong(selectedDate);
+                if (info.isWanKaoKong) {
+                  return (
+                    <div className="mb-3.5 p-3 bg-red-500/10 border border-red-500/20 text-red-600 dark:text-red-400 rounded-xl text-xs font-extrabold flex items-center gap-1.5 animate-pulse">
+                      <AlertTriangle className="size-3.5 shrink-0" />
+                      <span>วันเก้ากอง (ห้ามเผาศพ): วัน{info.daySign} (เดือน {info.lannaMonthName})</span>
+                    </div>
+                  );
+                }
+                return null;
+              })()}
+
               {selectedDateBookings.length === 0 && selectedDateEvents.length === 0 ? (
                 <div className="p-8 text-center">
                   <Clock className="size-8 mx-auto text-amber-200 dark:text-amber-950/50 mb-2" />
@@ -707,7 +789,7 @@ export default function SalaManagement() {
                         <div className="space-y-1 text-[10px] text-amber-800/80 dark:text-amber-400/80">
                           <div className="flex items-center gap-1.5">
                             <Clock className="size-3.5 text-amber-600/60" />
-                            <span>{bk.start_date === bk.end_date ? 'จอง 1 วัน' : `จอง ${bk.num_days} วัน (${bk.start_date} ถึง ${bk.end_date})`}</span>
+                            <span>{bk.start_date === bk.end_date ? `จอง 1 วัน (${formatThaiDate(bk.start_date)})` : `จอง ${bk.num_days} วัน (${formatThaiDate(bk.start_date)} ถึง ${formatThaiDate(bk.end_date)})`}</span>
                           </div>
                           <div className="flex items-center gap-1.5">
                             <User className="size-3.5 text-amber-600/60" />
@@ -1019,22 +1101,18 @@ export default function SalaManagement() {
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1">
                   <label className="text-xs font-bold text-amber-900/80 dark:text-amber-300">วันที่เริ่มจอง *</label>
-                  <input
-                    type="date"
+                  <ThaiDatePicker
                     required
                     value={currentBooking.start_date || ''}
-                    onChange={(e) => setCurrentBooking({ ...currentBooking, start_date: e.target.value })}
-                    className="w-full px-3 py-2 text-xs rounded-lg border border-amber-200 dark:border-amber-950 bg-white dark:bg-[#110e08] text-amber-950 dark:text-amber-100 outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500"
+                    onChange={(val) => setCurrentBooking({ ...currentBooking, start_date: val })}
                   />
                 </div>
                 <div className="space-y-1">
                   <label className="text-xs font-bold text-amber-900/80 dark:text-amber-300">วันที่สิ้นสุด *</label>
-                  <input
-                    type="date"
+                  <ThaiDatePicker
                     required
                     value={currentBooking.end_date || ''}
-                    onChange={(e) => setCurrentBooking({ ...currentBooking, end_date: e.target.value })}
-                    className="w-full px-3 py-2 text-xs rounded-lg border border-amber-200 dark:border-amber-950 bg-white dark:bg-[#110e08] text-amber-950 dark:text-amber-100 outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500"
+                    onChange={(val) => setCurrentBooking({ ...currentBooking, end_date: val })}
                   />
                 </div>
               </div>

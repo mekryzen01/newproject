@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { db, TempleEvent, Monk } from '@/lib/db';
+import { checkWanKaoKong } from '@/lib/lanna-calendar';
 
 export function useScheduleController() {
   const [events, setEvents] = useState<TempleEvent[]>([]);
@@ -113,6 +114,24 @@ export function useScheduleController() {
   const handleSaveEvent = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!currentEvent || !currentEvent.title || !currentEvent.location || !currentEvent.host_name) return;
+
+    // Check Wan Kao Kong validation for cremations/funerals
+    if (currentEvent.date) {
+      const targetDate = new Date(currentEvent.date);
+      const lannaInfo = checkWanKaoKong(targetDate);
+      if (lannaInfo.isWanKaoKong) {
+        const isFuneral = /เผาศพ|ฌาปนกิจ|ปลงศพ|งานศพ|สวดศพ|อภิธรรมศพ/g.test(currentEvent.title);
+        if (isFuneral) {
+          setAlertState({
+            show: true,
+            variant: 'destructive',
+            title: 'ผิดหลักประเพณีล้านนา',
+            description: `ไม่สามารถบันทึกได้ เนื่องจากวันที่เลือกตรงกับ "วันเก้ากอง" (วัน${lannaInfo.daySign} เดือน ${lannaInfo.lannaMonthName}) ซึ่งตามจารีตประเพณีล้านนาโบราณห้ามจัดพิธีเผาศพ/ฌาปนกิจเด็ดขาด`
+          });
+          return;
+        }
+      }
+    }
 
     setIsSaving(true);
     try {

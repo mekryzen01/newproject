@@ -10,6 +10,8 @@ export interface Monk {
   phone: string;
   status: 'active' | 'retired' | 'away'; // 'active' = อยู่จำพรรษา, 'retired' = ลาสิกขา, 'away' = จาริก/ไปวัดอื่น
   image_url?: string;
+  certificate_url?: string;
+  id_card_url?: string;
   father_name?: string;
   mother_name?: string;
   emergency_contact?: string;

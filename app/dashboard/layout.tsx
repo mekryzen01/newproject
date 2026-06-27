@@ -122,6 +122,22 @@ export default function DashboardLayout({
 
   const themeTokens = getThemeClasses(settings.themeColor);
 
+  // Helper to check path permission based on user role
+  const isPathAllowed = (href: string) => {
+    if (href === '#' || href === '') return true;
+    if (ADMIN_ONLY_PATHS.includes(href) && role !== 'admin') return false;
+    if (ADMIN_MENU_PATHS.includes(href) && role !== 'admin') return false;
+    if (EDITOR_PLUS_PATHS.includes(href) && role === 'staff') return false;
+    return true;
+  };
+
+  const isAuthorized = () => {
+    if (!loaded) return false;
+    const sessionStr = typeof window !== 'undefined' ? localStorage.getItem('temple_session') : null;
+    if (!sessionStr) return false;
+    return isPathAllowed(pathname);
+  };
+
   const loadMenusAndSettings = async () => {
     try {
       const [list, config] = await Promise.all([
@@ -250,17 +266,33 @@ export default function DashboardLayout({
   const BrandIcon = getIconComponent(settings.logoIcon);
 
   // Navigation render helper
-  // Filter menus based on role
+  // Filter submenus based on role
+  const filteredSubMenuMap: Record<string, MenuItem[]> = {};
+  Object.keys(subMenuMap).forEach(parentId => {
+    const subs = subMenuMap[parentId] || [];
+    const allowedSubs = subs.filter(sub => isPathAllowed(sub.href));
+    if (allowedSubs.length > 0) {
+      filteredSubMenuMap[parentId] = allowedSubs;
+    }
+  });
+
+  // Filter parent menus based on role and submenu visibility
   const visibleMenus = parentMenus.filter(parent => {
-    if (ADMIN_ONLY_PATHS.includes(parent.href) && role !== 'admin') return false;
-    if (ADMIN_MENU_PATHS.includes(parent.href) && role !== 'admin') return false;
-    if (EDITOR_PLUS_PATHS.includes(parent.href) && role === 'staff') return false;
+    if (!isPathAllowed(parent.href)) return false;
+
+    const subs = subMenuMap[parent.id] || [];
+    const hasSubs = subs.length > 0;
+    
+    if (hasSubs) {
+      const allowedSubs = filteredSubMenuMap[parent.id] || [];
+      return allowedSubs.length > 0;
+    }
     return true;
   });
 
   const renderNavItems = (mobile: boolean = false) => {
     return visibleMenus.map(parent => {
-      const subs = subMenuMap[parent.id] || [];
+      const subs = filteredSubMenuMap[parent.id] || [];
       const hasSubs = subs.length > 0;
       const isExpanded = !!expandedMenus[parent.id];
       const Icon = getIconComponent(parent.iconName);
@@ -513,7 +545,19 @@ export default function DashboardLayout({
 
         {/* Content body */}
         <main className="flex-1 p-6 md:p-8 max-w-[1400px] w-full mx-auto print:p-0">
-          {children}
+          {!loaded ? (
+            <div className="min-h-[40vh] flex items-center justify-center">
+              <div className="w-10 h-10 border-4 border-amber-500 border-t-transparent rounded-full animate-spin" />
+            </div>
+          ) : !isAuthorized() ? (
+            <div className="min-h-[40vh] flex flex-col items-center justify-center gap-3">
+              <p className="text-sm font-semibold text-amber-700/60 dark:text-amber-500/60">
+                ไม่มีสิทธิ์เข้าถึงหน้านี้ กำลังพากลับไปยังแดชบอร์ด...
+              </p>
+            </div>
+          ) : (
+            children
+          )}
         </main>
       </div>
     </div>

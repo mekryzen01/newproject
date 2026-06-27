@@ -60,6 +60,8 @@ export function useMonksController() {
       phone: '',
       status: 'active',
       image_url: '',
+      certificate_url: '',
+      id_card_url: '',
       father_name: '',
       mother_name: '',
       emergency_contact: '',

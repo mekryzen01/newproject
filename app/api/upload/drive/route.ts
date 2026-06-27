@@ -65,7 +65,7 @@ export async function POST(req: Request) {
           },
         });
 
-        const viewLink = `https://docs.google.com/uc?export=view&id=${fileId}`;
+        const viewLink = `/api/image/drive?id=${fileId}`;
 
         console.log(`[Google Drive] Successfully uploaded file "${file.name}" via OAuth2 to folder "${folderId || 'Root'}". File ID: ${fileId}`);
         
@@ -117,7 +117,7 @@ export async function POST(req: Request) {
           },
         });
 
-        const viewLink = `https://docs.google.com/uc?export=view&id=${fileId}`;
+        const viewLink = `/api/image/drive?id=${fileId}`;
 
         console.log(`[Google Drive] Successfully uploaded file "${file.name}" via Service Account. File ID: ${fileId}`);
         

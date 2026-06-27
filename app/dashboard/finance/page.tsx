@@ -20,6 +20,8 @@ import { Button } from '@/components/ui/button';
 import { useFinanceController } from '@/app/Controllers/useFinanceController';
 import { CustomDialog } from '@/components/ui/custom-dialog';
 import { usePermission } from '@/lib/usePermission';
+import { formatThaiDate } from '@/lib/utils';
+import { ThaiDatePicker } from '@/components/ui/thai-date-picker';
 
 export default function FinanceManagement() {
   const { permissions } = usePermission();
@@ -246,7 +248,7 @@ export default function FinanceManagement() {
               <tbody className="divide-y divide-amber-100/40 dark:divide-amber-950/20">
                 {filteredTxs.map((tx) => (
                   <tr key={tx.id} className="hover:bg-amber-50/10 dark:hover:bg-amber-950/5 transition-colors">
-                    <td className="py-3.5 px-3 whitespace-nowrap text-amber-800/70 dark:text-amber-400">{tx.date}</td>
+                    <td className="py-3.5 px-3 whitespace-nowrap text-amber-800/70 dark:text-amber-400">{formatThaiDate(tx.date)}</td>
                     <td className="py-3.5 px-3 whitespace-nowrap">
                       <span className={`px-2 py-0.5 rounded-[4px] text-[10px] font-bold ${
                         tx.type === 'income'
@@ -346,12 +348,10 @@ export default function FinanceManagement() {
               {/* Date */}
               <div className="space-y-1">
                 <label className="text-xs font-bold text-amber-900/80 dark:text-amber-300">วันที่ทำรายการ</label>
-                <input
-                  type="date"
+                <ThaiDatePicker
                   required
                   value={currentTx.date || ''}
-                  onChange={(e) => updateFormFields('date', e.target.value)}
-                  className="w-full px-3 py-2 text-xs rounded-lg border border-amber-200 dark:border-amber-950 bg-white dark:bg-[#110e08] text-amber-950 dark:text-amber-100 outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500"
+                  onChange={(val) => updateFormFields('date', val)}
                 />
               </div>
 
@@ -464,7 +464,7 @@ export default function FinanceManagement() {
               </p>
 
               <p className="text-xs text-amber-800/50 pt-3">
-                อนุโมทนาบัตร ณ วันที่: {printTx.date}
+                อนุโมทนาบัตร ณ วันที่: {formatThaiDate(printTx.date)}
               </p>
             </div>
 

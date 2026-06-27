@@ -18,6 +18,8 @@ import { Button } from '@/components/ui/button';
 import { useInventoryController } from '@/app/Controllers/useInventoryController';
 import { CustomDialog } from '@/components/ui/custom-dialog';
 import { usePermission } from '@/lib/usePermission';
+import { formatThaiDate } from '@/lib/utils';
+import { ThaiDatePicker } from '@/components/ui/thai-date-picker';
 
 export default function InventoryManagement() {
   const { permissions } = usePermission();
@@ -51,6 +53,8 @@ export default function InventoryManagement() {
     filteredInventory,
     filteredBorrows
   } = useInventoryController();
+
+  const [isUploadingPhoto, setIsUploadingPhoto] = React.useState(false);
 
   return (
     <div className="space-y-6">
@@ -292,9 +296,9 @@ export default function InventoryManagement() {
                     </td>
                     <td className="py-3.5 px-3 font-semibold text-amber-900 dark:text-amber-300">{record.item_name}</td>
                     <td className="py-3.5 px-3 text-center font-bold text-amber-950 dark:text-amber-200">{record.borrow_qty} ชิ้น</td>
-                    <td className="py-3.5 px-3 text-amber-800/70 dark:text-amber-400">{record.borrow_date}</td>
+                    <td className="py-3.5 px-3 text-amber-800/70 dark:text-amber-400">{formatThaiDate(record.borrow_date)}</td>
                     <td className="py-3.5 px-3 text-amber-800/70 dark:text-amber-400">
-                      {record.due_date}
+                      {formatThaiDate(record.due_date)}
                       {record.status === 'overdue' && <span className="text-[9px] font-bold text-red-500 block">เลยกำหนดส่ง</span>}
                     </td>
                     <td className="py-3.5 px-3">
@@ -307,7 +311,7 @@ export default function InventoryManagement() {
                       }`}>
                         {record.status === 'returned' ? 'คืนของแล้ว' : record.status === 'overdue' ? 'เกินกำหนดคืน' : 'กำลังยืม'}
                       </span>
-                      {record.return_date && <span className="text-[9px] text-amber-800/40 block mt-0.5">คืนเมื่อ: {record.return_date}</span>}
+                      {record.return_date && <span className="text-[9px] text-amber-800/40 block mt-0.5">คืนเมื่อ: {formatThaiDate(record.return_date)}</span>}
                     </td>
                     {permissions.canEdit && (
                       <td className="py-3.5 px-3 text-center">
@@ -392,16 +396,98 @@ export default function InventoryManagement() {
                 </select>
               </div>
 
-              {/* Image URL */}
-              <div className="space-y-1">
-                <label className="text-xs font-bold text-amber-900/80 dark:text-amber-300">ลิงก์ที่อยู่รูปภาพครุภัณฑ์จริง (Image URL)</label>
-                <input
-                  type="text"
-                  value={currentItem.image_url || ''}
-                  onChange={(e) => updateItemFormFields('image_url', e.target.value)}
-                  className="w-full px-3 py-2 text-xs rounded-lg border border-amber-200 dark:border-amber-950 bg-white dark:bg-[#110e08] text-amber-950 dark:text-amber-100 outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500"
-                  placeholder="เช่น https://domain.com/item.jpg"
-                />
+              {/* Image Upload / URL */}
+              <div className="space-y-2">
+                <label className="text-xs font-bold text-amber-900/80 dark:text-amber-300">
+                  รูปภาพครุภัณฑ์ (รองรับ JPG, PNG, WEBP)
+                </label>
+                <div className="flex items-center gap-4">
+                  {/* Preview Box */}
+                  <div className="w-16 h-16 rounded-xl border-2 border-amber-200 dark:border-amber-950 bg-amber-50/30 dark:bg-amber-950/10 overflow-hidden flex items-center justify-center shrink-0 text-amber-300 dark:text-amber-700">
+                    {isUploadingPhoto ? (
+                      <Loader2 className="size-6 animate-spin text-amber-500" />
+                    ) : currentItem.image_url ? (
+                      /* eslint-disable-next-line @next/next/no-img-element */
+                      <img
+                        src={currentItem.image_url}
+                        className="w-full h-full object-cover"
+                        alt="preview"
+                        onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                      />
+                    ) : (
+                      <Package className="size-8 text-amber-200 dark:text-amber-900/35" />
+                    )}
+                  </div>
+
+                  {/* Controls */}
+                  <div className="flex-1 space-y-1.5">
+                    <label
+                      htmlFor="item-photo-upload"
+                      className={`flex items-center gap-2 px-3 py-2 rounded-lg border border-dashed border-amber-400 dark:border-amber-700 bg-amber-50/20 dark:bg-amber-950/10 text-xs font-bold text-amber-700 dark:text-amber-400 cursor-pointer hover:bg-amber-500/10 transition-colors ${
+                        isUploadingPhoto ? 'opacity-50 cursor-not-allowed' : ''
+                      }`}
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" className="size-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="m21 15-5-5L5 21"/></svg>
+                      <span>{isUploadingPhoto ? 'กำลังอัปโหลด...' : 'อัปโหลดรูปภาพ...'}</span>
+                    </label>
+                    <input
+                      id="item-photo-upload"
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      disabled={isUploadingPhoto}
+                      onChange={async (e) => {
+                        const file = e.target.files?.[0];
+                        if (!file) return;
+
+                        setIsUploadingPhoto(true);
+                        try {
+                          const formData = new FormData();
+                          formData.append('file', file);
+
+                          const res = await fetch('/api/upload/drive', {
+                            method: 'POST',
+                            body: formData
+                          });
+
+                          const data = await res.json();
+                          if (data.success && data.path) {
+                            updateItemFormFields('image_url', data.path);
+                          } else {
+                            alert(data.error || 'ไม่สามารถอัปโหลดรูปภาพได้');
+                          }
+                        } catch (err: any) {
+                          console.error('Upload photo error:', err);
+                          alert('เกิดข้อผิดพลาดในการเชื่อมต่อเซิร์ฟเวอร์เพื่ออัปโหลดรูปภาพ');
+                        } finally {
+                          setIsUploadingPhoto(false);
+                        }
+                      }}
+                    />
+                    {currentItem.image_url && (
+                      <button
+                        type="button"
+                        disabled={isUploadingPhoto}
+                        onClick={() => updateItemFormFields('image_url', '')}
+                        className="text-[10px] text-red-500 hover:underline cursor-pointer block disabled:opacity-50 text-left bg-transparent border-none p-0"
+                      >
+                        ลบรูปภาพออก
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                {/* Manual Link Input */}
+                <div className="pt-1">
+                  <label className="text-[10px] font-bold text-amber-800/60 dark:text-amber-500/50">หรือกรอกลิงก์ที่อยู่รูปภาพโดยตรง (Image URL)</label>
+                  <input
+                    type="text"
+                    value={currentItem.image_url || ''}
+                    onChange={(e) => updateItemFormFields('image_url', e.target.value)}
+                    className="w-full mt-1 px-3 py-1.5 text-xs rounded-lg border border-amber-200 dark:border-amber-950 bg-white dark:bg-[#110e08] text-amber-950 dark:text-amber-100 outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500"
+                    placeholder="เช่น https://domain.com/item.jpg"
+                  />
+                </div>
               </div>
 
               {/* Total Qty */}
@@ -535,24 +621,20 @@ export default function InventoryManagement() {
                 {/* Borrow Date */}
                 <div className="space-y-1">
                   <label className="text-xs font-bold text-amber-900/80 dark:text-amber-300">วันที่ยืมของ</label>
-                  <input
-                    type="date"
+                  <ThaiDatePicker
                     required
                     value={currentBorrow.borrow_date || ''}
-                    onChange={(e) => updateBorrowFormFields('borrow_date', e.target.value)}
-                    className="w-full px-3 py-2 text-xs rounded-lg border border-amber-200 dark:border-amber-950 bg-white dark:bg-[#110e08] text-amber-950 dark:text-amber-100 outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500"
+                    onChange={(val) => updateBorrowFormFields('borrow_date', val)}
                   />
                 </div>
 
                 {/* Due Date */}
                 <div className="space-y-1">
                   <label className="text-xs font-bold text-amber-900/80 dark:text-amber-300">กำหนดส่งคืนวัด</label>
-                  <input
-                    type="date"
+                  <ThaiDatePicker
                     required
                     value={currentBorrow.due_date || ''}
-                    onChange={(e) => updateBorrowFormFields('due_date', e.target.value)}
-                    className="w-full px-3 py-2 text-xs rounded-lg border border-amber-200 dark:border-amber-950 bg-white dark:bg-[#110e08] text-amber-950 dark:text-amber-100 outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500"
+                    onChange={(val) => updateBorrowFormFields('due_date', val)}
                   />
                 </div>
               </div>

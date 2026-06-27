@@ -1,36 +1,149 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# ระบบบริหารจัดการวัดและศาสนพิธี (Temple Management & Rituals System)
+### วัดศรีสว่างธรรมาราม
 
-## Getting Started
+ระบบแอปพลิเคชันเว็บแบบครบวงจรสำหรับวัดและศาสนพิธี พัฒนาขึ้นโดยใช้เฟรมเวิร์ก **Next.js (App Router)** ร่วมกับ **Supabase** และระบบฐานข้อมูล **Postgres (Drizzle ORM)** ออกแบบและตกแต่งภายใต้สถาปัตยกรรมดีไซน์หรูหราพรีเมียม (Curated Aesthetic) ใช้งานง่าย รองรับภาษาไทยและระบบปฏิทินไทย-ล้านนาอย่างสมบูรณ์แบบ
 
-First, run the development server:
+---
+
+## 🌟 ฟีเจอร์หลักของระบบ (Main Features)
+
+### 1. ระบบทะเบียนพระภิกษุสามเณร (Monks Management)
+*   ระบบจัดเก็บประวัติพระภิกษุและสามเณรที่จำพรรษาในวัด
+*   รองรับการแสดงผล 2 รูปแบบ: **Grid View** (การ์ดรูปภาพสวยงาม) และ **Table View** (ตารางสแกนข้อมูลสะดวกรวดเร็ว) พร้อมปุ่มสลับมุมมอง
+*   จัดการเพิ่ม แก้ไข ลบ และสืบค้นข้อมูลได้อย่างมีประสิทธิภาพ
+
+### 2. ระบบตารางงานนิมนต์และศาสนพิธี (Ritual & Schedule Management)
+*   จัดตารางงานนิมนต์ประจำวัน ปฏิทินงานวัด และกิจนิมนต์ภายนอก
+*   ระบุเวลา สถานที่ เจ้าภาพ และจำนวนพระภิกษุที่ต้องการจัดสรร
+*   **ระบบตรวจสอบสิทธิ์ป้องกัน "วันเก้ากอง" (Lanna Astrology Validation):** บล็อกการบันทึกพิธีหรือชื่องานที่เกี่ยวข้องกับการฌาปนกิจ/เผาศพ หากวันที่เลือกตรงกับ "วันเก้ากอง" ตามประเพณีล้านนาโบราณ
+
+### 3. ระบบจองศาลาบำเพ็ญกุศลและกิจกรรม (Sala Booking System)
+*   ระบบบริหารจัดการศาลาวัด แยกตามระดับและประเภทการใช้สอย
+*   ปฏิทินจองศาลาแบบ Interactive แสดงสถานะการจองตามสีประเภทกิจกรรม (เช่น งานศพ, งานแต่งงาน, งานบุญพิธี)
+*   **แจ้งเตือนวันเก้ากองกะพริบอัตโนมัติ:** เมื่อคลิกดูวันเก้ากองในระบบปฏิทิน จะมีแถบเตือนสีแดงกะพริบแจ้งทันที
+*   **ระบบป้องกันการจองวันสุดท้ายตรงกับวันเก้ากอง:** หากเลือกจัดงานศพ และวันสุดท้ายของการจอง (วันฌาปนกิจศพ) ตรงกับวันเก้ากอง ระบบจะแสดงหน้าต่างเตือนและปฏิเสธการจองทันทีเพื่อรักษาจารีตประเพณีล้านนาโบราณ
+*   **LINE OA Integration:** ส่งข้อความแจ้งเตือนรายละเอียดการจองศาลาเข้าสู่ LINE OA ของวัดโดยตรงผ่านระบบ Server Route Proxying ไปยัง PHP Endpoint
+
+### 4. ระบบคลังครุภัณฑ์วัดและการยืม-คืน (Inventory & Borrowing System)
+*   จัดเก็บและดูแลครุภัณฑ์วัด (เช่น เต็นท์, โต๊ะ, เก้าอี้, ถ้วยชาม, พัดลม)
+*   **Google Drive Photo Storage:** เก็บไฟล์ภาพครุภัณฑ์แต่ละชิ้นไว้บน Google Drive จริงอย่างไร้รอยต่อ ป้องกันปัญหาพื้นที่โฮสต์เต็ม
+*   ระบบทำรายการ ยืม-คืนสิ่งของ สำหรับชุมชนรอบวัด พร้อมบันทึกเบอร์โทรศัพท์และกำหนดส่งคืน
+
+### 5. ระบบการเงินและบัญชีวัด (Finance & Bookkeeping)
+*   บันทึกรายรับ-รายจ่ายของวัด (เงินทำบุญ, ค่าน้ำไฟ, ค่าบูรณปฏิสังขรณ์)
+*   **Dashboard สรุปผลเชิงสถิติ:** แสดงผลเป็นกราฟแท่ง (Bar Chart) เปรียบเทียบรายรับ-รายจ่ายในรอบ 1 ปี (12 เดือน) แยกตามรายเดือนอย่างละเอียด
+
+### 6. การปรับแต่งภาษาและองค์ประกอบเสริม (System Customization)
+*   **Thai DatePicker ทั้งระบบ:** ปรับเปลี่ยนคอมโพเนนต์เลือกวันที่เป็นแบบปีพุทธศักราช (พ.ศ.) และเดือนภาษาไทย 100%
+*   **Menu Permission Control:** ระบบการจัดการสิทธิ์ของเมนูและลิงก์ต่าง ๆ บน Dashboard ตามกลุ่มผู้ใช้ (เช่น พระสังฆาธิการ, พระลูกวัด, ผู้ดูแลระบบ, มัคนายก)
+
+---
+
+## 🛠️ เทคโนโลยีที่ใช้ (Tech Stack)
+
+*   **Front-end Framework:** Next.js (TypeScript, React 19)
+*   **Styling:** Tailwind CSS & Vanilla CSS (Curated Amber-Gold Theme)
+*   **Icons:** Lucide React
+*   **Database:** Supabase (Postgres)
+*   **ORM:** Drizzle ORM
+*   **API & Integrations:** 
+    *   Google APIs Client Library (`googleapis`) สำหรับเชื่อมต่อ Google Drive
+    *   LINE Messaging API สำหรับระบบส่งการแจ้งเตือน
+
+---
+
+## 📦 การติดตั้งและเริ่มต้นใช้งาน (Installation & Setup)
+
+### 1. โคลนโปรเจกต์และติดตั้ง Dependency
+ดาวน์โหลดซอร์สโค้ดของโครงการลงในเครื่องคอมพิวเตอร์ของคุณ จากนั้นใช้คำสั่งด้านล่างนี้เพื่อติดตั้งแพ็กเกจที่จำเป็น:
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+# ติดตั้ง dependencies ผ่าน npm
+npm install
+
+# หรือหากใช้ bun
+bun install
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+### 2. ตั้งค่าไฟล์ Environment Variables
+คัดลอกไฟล์ต้นแบบ `.env.local.example` เป็น `.env.local`
+```bash
+cp .env.local.example .env.local
+```
+เปิดไฟล์ `.env.local` และกำหนดค่าต่าง ๆ ดังนี้:
+```env
+NEXT_PUBLIC_SUPABASE_URL=https://your-project-id.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-public-key
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+# ตัวเลือกเสริมสำหรับการอัปโหลดรูปภาพไปยัง Google Drive
+# GOOGLE_SERVICE_ACCOUNT_EMAIL=...
+# GOOGLE_PRIVATE_KEY=...
+# GOOGLE_DRIVE_FOLDER_ID=...
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+# ตัวเลือกเสริมสำหรับการเชื่อมต่อแจ้งเตือน LINE OA
+# LINE_CHANNEL_ACCESS_TOKEN=...
+```
 
-## Learn More
+### 3. ตั้งค่าฐานข้อมูลและเขียนข้อมูลเริ่มต้น (Database & Seed)
+ระบบจัดเตรียมสคริปต์การทำ Migration และเขียนข้อมูลเริ่มต้นของพระภิกษุ, ศาลา และบัญชีจำลองไว้ให้เรียบร้อยแล้ว:
 
-To learn more about Next.js, take a look at the following resources:
+```bash
+# ดำเนินการ Migrate โครงสร้างตารางและสร้างข้อมูลจำลอง (Seed) ไปยัง Supabase ของคุณ
+bun run db:setup
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+# หรือกรณีต้องการ Migrate และ Seed แยกกันด้วย NPM
+npx drizzle-kit push
+bun run db:seed
+```
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+### 4. รันโปรเจกต์ในโหมดพัฒนา (Development Server)
+```bash
+npm run dev
+# หรือ
+bun dev
+```
+เปิดบราวเซอร์และเข้าสู่ที่อยู่ [http://localhost:3000](http://localhost:3000) เพื่อเริ่มใช้งานแอปพลิเคชัน
 
-## Deploy on Vercel
+---
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## 📖 คู่มือการใช้งานระบบปฏิทินและข้อห้าม "วันเก้ากอง" ล้านนา
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+ระบบได้รับการออกแบบให้คำนวณ **วันดี-วันเสีย** โดยเฉพาะ **"วันเก้ากอง"** (วันห้ามเผาศพตามตำราล้านนา) เพื่อช่วยให้มัคนายกและทางวัดไม่เผลอจองงานศพหรือทำพิธีเผาศพในวันต้องห้าม
+
+### วิธีการคำนวณของระบบ:
+ระบบจะตรวจเช็กความเชื่อมโยงโดยอัตโนมัติ:
+1.  แปลงวันที่ของปฏิทินสุริยคติสากลเป็น **เดือนจันทรคติล้านนา** (เร็วกว่าเดือนภาคกลาง 2 เดือน เช่น เดือน 12 ไทยภาคกลาง = เดือน 2 ล้านนา หรือเดือนยี่)
+2.  คำนวณหาวันตามระบบ **ลูกวันล้านนา** (ไจ้, เป้า, ยี, เหม้า, สี, ใส้, สะง้า, เม็ด, สัน, เล้า, เส็ด, ไค้)
+3.  ตรวจสอบตามตำราเก้ากองล้านนาโบราณ:
+    *   **เดือน 1 (เกี๋ยง):** ห้ามวันเม็ด (แพะ)
+    *   **เดือน 2 (ยี่):** ห้ามวันสะง้า (ม้า)
+    *   **เดือน 3:** ห้ามวันใส้ (งูเล็ก)
+    *   **เดือน 4:** ห้ามวันสี (งูใหญ่)
+    *   **เดือน 5:** ห้ามวันเหม้า (กระต่าย)
+    *   **เดือน 6:** ห้ามวันยี (เสือ)
+    *   **เดือน 7:** ห้ามวันเป้า (วัว)
+    *   **เดือน 8:** ห้ามวันไจ้ (หนู)
+    *   **เดือน 9:** ห้ามวันไค้ (หมู)
+    *   **เดือน 10:** ห้ามวันเส็ด (สุนัข)
+    *   **เดือน 11:** ห้ามวันเล้า (ไก่)
+    *   **เดือน 12:** ห้ามวันสัน (ลิง)
+
+### สถานะความปลอดภัยและการปฏิเสธคำขอ (Validation Rules):
+*   **เมื่อเพิ่ม/แก้ไขตารางงานนิมนต์:** หากระบบพบว่ามีคำหลัก เช่น *เผาศพ, ฌาปนกิจ, ปลงศพ, งานศพ, อภิธรรมศพ* อยู่ในชื่อตารางนิมนต์ในวันเก้ากอง ระบบจะขึ้นแจ้งเตือนผิดประเพณีล้านนา และปฏิเสธการจัดเก็บข้อมูล
+*   **เมื่อจองศาลา:** หากมีชื่องานศพ หรือกิจกรรมประเภทศาลาเป็น `funeral` และมีการกำหนดวันสิ้นสุดการจอง (วันสิ้นสุดงานซึ่งโดยจารีตคือวันฌาปนกิจศพจริง) ตรงกับวันเก้ากอง ระบบจะล็อกสิทธิ์และขึ้นหน้าต่างแจ้งเตือนป้องกันการบันทึกการจอง เพื่อความสงบเรียบร้อยและความสบายใจของญาติโยมในชุมชน
+
+---
+
+## 🏛️ โครงสร้างโฟลเดอร์หลัก (Folder Structure)
+
+*   `app/` - ส่วนการแสดงผลหลักของ Next.js และระบบ Dashboard แต่ละโมดูล
+    *   `app/dashboard/monks/` - ทะเบียนพระภิกษุสามเณร (สลับมุมมอง Grid/Table)
+    *   `app/dashboard/schedule/` - ตารางงานนิมนต์ (แจ้งเตือนวันเก้ากอง)
+    *   `app/dashboard/sala/` - ระบบจองศาลา (ป้องกันและแจ้งเตือนวันเก้ากอง)
+    *   `app/dashboard/finance/` - การเงินของวัดและกราฟรายปี
+    *   `app/dashboard/inventory/` - จัดการครุภัณฑ์และการเชื่อมโยง Google Drive
+*   `lib/` - โมดูลและยูทิลิตี้หลักของระบบ
+    *   `lib/db.ts` - การตั้งค่า Supabase Database Client
+    *   `lib/lanna-calendar.ts` - ตัวคำนวณวันจันทรคติล้านนาและวันเก้ากอง
+*   `components/ui/` - คอมโพเนนต์ UI พื้นฐาน เช่น `thai-date-picker.tsx`
+*   `drizzle/` - สคริปต์ Database Schema และไฟล์เขียนข้อมูลเริ่มต้น (Seed)

@@ -14,15 +14,29 @@ import {
   FileText,
   Loader2,
   Lock,
-  Bookmark
+  Bookmark,
+  LayoutGrid,
+  List
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useAshesController } from '@/app/Controllers/useAshesController';
 import { CustomDialog } from '@/components/ui/custom-dialog';
 import { usePermission } from '@/lib/usePermission';
+import { formatThaiDate } from '@/lib/utils';
+import { ThaiDatePicker } from '@/components/ui/thai-date-picker';
 
 export default function AshesManagement() {
   const { permissions } = usePermission();
+  const [viewMode, setViewMode] = React.useState<'grid' | 'table'>(() => {
+    if (typeof window !== 'undefined') {
+      return (localStorage.getItem('ashes_view_mode') as 'grid' | 'table') || 'grid';
+    }
+    return 'grid';
+  });
+
+  React.useEffect(() => {
+    localStorage.setItem('ashes_view_mode', viewMode);
+  }, [viewMode]);
   const {
     loading,
     search,
@@ -107,6 +121,34 @@ export default function AshesManagement() {
             className="w-full pl-9 pr-4 py-2 rounded-lg border border-amber-200/60 dark:border-amber-950 bg-amber-50/10 dark:bg-[#1a150e] text-amber-950 dark:text-amber-100 placeholder-amber-700/30 dark:placeholder-amber-500/20 text-xs outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 transition-all"
           />
         </div>
+
+        {/* View Mode Toggle */}
+        <div className="flex items-center gap-1 border border-amber-200/40 dark:border-amber-950 bg-amber-50/10 dark:bg-[#1a150e] p-1 rounded-lg shrink-0 self-end md:self-auto ml-auto">
+          <button
+            type="button"
+            onClick={() => setViewMode('grid')}
+            className={`p-1.5 rounded-md cursor-pointer transition-all ${
+              viewMode === 'grid'
+                ? 'bg-amber-500 text-white shadow-sm'
+                : 'text-amber-700/65 dark:text-amber-500/50 hover:bg-amber-500/10 hover:text-amber-900 dark:hover:text-amber-200'
+            }`}
+            title="แสดงผลแบบ Grid"
+          >
+            <LayoutGrid className="size-3.5" />
+          </button>
+          <button
+            type="button"
+            onClick={() => setViewMode('table')}
+            className={`p-1.5 rounded-md cursor-pointer transition-all ${
+              viewMode === 'table'
+                ? 'bg-amber-500 text-white shadow-sm'
+                : 'text-amber-700/65 dark:text-amber-500/50 hover:bg-amber-500/10 hover:text-amber-900 dark:hover:text-amber-200'
+            }`}
+            title="แสดงผลแบบ Table"
+          >
+            <List className="size-3.5" />
+          </button>
+        </div>
       </div>
 
       {/* Grid of relics */}
@@ -120,7 +162,7 @@ export default function AshesManagement() {
           <Archive className="size-12 mx-auto text-amber-200 dark:text-amber-900/35 mb-2.5" />
           <p className="text-sm text-amber-800/50 dark:text-amber-500/40">ไม่พบทะเบียนฝากอัฐิตามเงื่อนไข</p>
         </div>
-      ) : (
+      ) : viewMode === 'grid' ? (
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 animate-fade-in">
           {filteredRecords.map((record) => (
             <div
@@ -145,7 +187,7 @@ export default function AshesManagement() {
                       {record.deceased_name}
                     </h3>
                     <p className="text-[10px] text-amber-700/50 dark:text-amber-500/40 mt-0.5">
-                      เสียชีวิตเมื่อ: {record.death_date}
+                      เสียชีวิตเมื่อ: {formatThaiDate(record.death_date)}
                     </p>
                   </div>
                 </div>
@@ -157,7 +199,7 @@ export default function AshesManagement() {
                   </div>
                   <div className="flex items-center gap-2.5 text-amber-800/80 dark:text-amber-400">
                     <Calendar className="size-4 text-amber-600 dark:text-amber-500 shrink-0" />
-                    <span>วันที่ฝากอัฐิ: <strong className="font-semibold text-amber-950 dark:text-amber-200">{record.deposit_date}</strong></span>
+                    <span>วันที่ฝากอัฐิ: <strong className="font-semibold text-amber-950 dark:text-amber-200">{formatThaiDate(record.deposit_date)}</strong></span>
                   </div>
                   <div className="flex items-start gap-2.5 text-amber-800/80 dark:text-amber-400">
                     <User className="size-4 text-amber-600 dark:text-amber-500 shrink-0 mt-0.5" />
@@ -173,7 +215,7 @@ export default function AshesManagement() {
                     <span>ผู้รับฝาก: <strong className="font-semibold text-amber-950 dark:text-amber-200">{record.deposited_by || '-'}</strong></span>
                   </div>
                   {record.notes && (
-                    <div className="flex items-start gap-2.5 text-amber-800/70 dark:text-amber-450 mt-2 bg-amber-50/10 p-2.5 rounded-lg border border-amber-100/50 dark:border-amber-950">
+                    <div className="flex items-start gap-2.5 text-amber-800/70 dark:text-amber-455 mt-2 bg-amber-50/10 p-2.5 rounded-lg border border-amber-100/50 dark:border-amber-950">
                       <FileText className="size-3.5 text-amber-600 shrink-0 mt-0.5" />
                       <p className="text-[10px] leading-relaxed">{record.notes}</p>
                     </div>
@@ -208,6 +250,77 @@ export default function AshesManagement() {
               )}
             </div>
           ))}
+        </div>
+      ) : (
+        /* Table View */
+        <div className="bg-white dark:bg-[#15110a] rounded-2xl border border-amber-200/40 dark:border-amber-950/30 overflow-hidden shadow-md shadow-amber-100/5 animate-fade-in">
+          <div className="overflow-x-auto">
+            <table className="w-full text-left border-collapse text-xs">
+              <thead>
+                <tr className="bg-amber-50/50 dark:bg-amber-950/15 border-b border-amber-200/30 dark:border-amber-950/30 text-amber-800/80 dark:text-amber-400 font-extrabold text-[11px]">
+                  <th className="p-4">ชื่อผู้วายชนม์</th>
+                  <th className="p-4">วันเสียชีวิต</th>
+                  <th className="p-4">ตู้ที่/ล็อกที่</th>
+                  <th className="p-4">วันที่นำมาฝาก</th>
+                  <th className="p-4">ญาติผู้ติดต่อ</th>
+                  <th className="p-4">เบอร์โทรศัพท์ญาติ</th>
+                  <th className="p-4">ผู้รับฝาก</th>
+                  <th className="p-4 text-center w-36">การจัดการ</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-amber-100/40 dark:divide-amber-950/20">
+                {filteredRecords.map((record) => (
+                  <tr key={record.id} className="hover:bg-amber-50/10 dark:hover:bg-amber-950/5 transition-colors">
+                    <td className="p-4 font-extrabold text-amber-950 dark:text-amber-100 text-sm">
+                      {record.deceased_name}
+                    </td>
+                    <td className="p-4 text-amber-800/80 dark:text-amber-400">
+                      {formatThaiDate(record.death_date)}
+                    </td>
+                    <td className="p-4 font-bold text-amber-900 dark:text-amber-300">
+                      {record.niche_code}
+                    </td>
+                    <td className="p-4 text-amber-800/80 dark:text-amber-400">
+                      {formatThaiDate(record.deposit_date)}
+                    </td>
+                    <td className="p-4 font-semibold text-amber-950 dark:text-amber-200">
+                      {record.relative_name}
+                    </td>
+                    <td className="p-4 font-medium text-amber-850 dark:text-amber-250 font-sans">
+                      {record.relative_phone || '-'}
+                    </td>
+                    <td className="p-4 text-amber-800/70 dark:text-amber-400">
+                      {record.deposited_by || '-'}
+                    </td>
+                    <td className="p-4">
+                      <div className="flex justify-center items-center gap-1.5">
+                        {permissions.canEdit && (
+                          <button
+                            type="button"
+                            onClick={() => handleOpenEditModal(record)}
+                            className="p-1.5 rounded-lg border border-amber-200/50 dark:border-amber-950 hover:bg-amber-500/10 text-amber-600 dark:text-amber-400 cursor-pointer"
+                            title="แก้ไข"
+                          >
+                            <Edit className="size-4" />
+                          </button>
+                        )}
+                        {permissions.canDelete && (
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteRecord(record.id)}
+                            className="p-1.5 rounded-lg border border-amber-200/50 dark:border-amber-950 hover:bg-red-500/10 text-red-600 dark:text-red-400 cursor-pointer"
+                            title="ลบ"
+                          >
+                            <Trash className="size-4" />
+                          </button>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
 
@@ -247,24 +360,20 @@ export default function AshesManagement() {
                 {/* Date of Death */}
                 <div className="space-y-1">
                   <label className="text-xs font-bold text-amber-900/80 dark:text-amber-300">วันที่เสียชีวิต *</label>
-                  <input
-                    type="date"
+                  <ThaiDatePicker
                     required
                     value={currentRecord.death_date || ''}
-                    onChange={(e) => updateFormFields('death_date', e.target.value)}
-                    className="w-full px-3 py-2 text-xs rounded-lg border border-amber-200 dark:border-amber-950 bg-white dark:bg-[#110e08] text-amber-950 dark:text-amber-100 outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500"
+                    onChange={(val) => updateFormFields('death_date', val)}
                   />
                 </div>
 
                 {/* Deposit Date */}
                 <div className="space-y-1">
                   <label className="text-xs font-bold text-amber-900/80 dark:text-amber-300">วันที่ประดิษฐาน/บรรจุ *</label>
-                  <input
-                    type="date"
+                  <ThaiDatePicker
                     required
                     value={currentRecord.deposit_date || ''}
-                    onChange={(e) => updateFormFields('deposit_date', e.target.value)}
-                    className="w-full px-3 py-2 text-xs rounded-lg border border-amber-200 dark:border-amber-950 bg-white dark:bg-[#110e08] text-amber-950 dark:text-amber-100 outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500"
+                    onChange={(val) => updateFormFields('deposit_date', val)}
                   />
                 </div>
 

@@ -15,21 +15,38 @@ import {
   ChevronDown,
   ChevronUp,
   MapPin,
-  Heart
+  Heart,
+  LayoutGrid,
+  List,
+  Info
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useMonksController } from '@/app/Controllers/useMonksController';
 import { CustomDialog } from '@/components/ui/custom-dialog';
 import { usePermission } from '@/lib/usePermission';
 import { Monk } from '@/lib/db';
+import { formatThaiDate } from '@/lib/utils';
 import Image from 'next/image';
+import { ThaiDatePicker } from '@/components/ui/thai-date-picker';
 
 export default function MonksManagement() {
   const { permissions } = usePermission();
   const [detailedMonk, setDetailedMonk] = React.useState<Monk | null>(null);
   const [expandedMonkIds, setExpandedMonkIds] = React.useState<Record<string, boolean>>({});
+  const [viewMode, setViewMode] = React.useState<'grid' | 'table'>(() => {
+    if (typeof window !== 'undefined') {
+      return (localStorage.getItem('monks_view_mode') as 'grid' | 'table') || 'grid';
+    }
+    return 'grid';
+  });
+
+  React.useEffect(() => {
+    localStorage.setItem('monks_view_mode', viewMode);
+  }, [viewMode]);
   const [personTypeFilter, setPersonTypeFilter] = React.useState<string>('all');
   const [isUploadingPhoto, setIsUploadingPhoto] = React.useState(false);
+  const [isUploadingCertificate, setIsUploadingCertificate] = React.useState(false);
+  const [isUploadingIdCard, setIsUploadingIdCard] = React.useState(false);
 
   const toggleExpandMonk = (id: string) => {
     setExpandedMonkIds((prev) => ({ ...prev, [id]: !prev[id] }));
@@ -159,6 +176,34 @@ export default function MonksManagement() {
             <option value="retired">ลาสิกขา/สึก/พ้นสภาพ</option>
           </select>
         </div>
+
+        {/* View Mode Toggle */}
+        <div className="flex items-center gap-1 border border-amber-200/40 dark:border-amber-950 bg-amber-50/10 dark:bg-[#1a150e] p-1 rounded-lg shrink-0 self-end md:self-auto ml-auto">
+          <button
+            type="button"
+            onClick={() => setViewMode('grid')}
+            className={`p-1.5 rounded-md cursor-pointer transition-all ${
+              viewMode === 'grid'
+                ? 'bg-amber-500 text-white shadow-sm'
+                : 'text-amber-700/65 dark:text-amber-500/50 hover:bg-amber-500/10 hover:text-amber-900 dark:hover:text-amber-200'
+            }`}
+            title="แสดงผลแบบ Grid"
+          >
+            <LayoutGrid className="size-3.5" />
+          </button>
+          <button
+            type="button"
+            onClick={() => setViewMode('table')}
+            className={`p-1.5 rounded-md cursor-pointer transition-all ${
+              viewMode === 'table'
+                ? 'bg-amber-500 text-white shadow-sm'
+                : 'text-amber-700/65 dark:text-amber-500/50 hover:bg-amber-500/10 hover:text-amber-900 dark:hover:text-amber-200'
+            }`}
+            title="แสดงผลแบบ Table"
+          >
+            <List className="size-3.5" />
+          </button>
+        </div>
       </div>
 
       {/* Monks Grid/Table */}
@@ -174,7 +219,7 @@ export default function MonksManagement() {
           <Users className="size-12 mx-auto text-amber-200 dark:text-amber-950/50 mb-3" />
           <p className="text-sm text-amber-800/50 dark:text-amber-500/40">ไม่พบรายชื่อบุคลากรตามเงื่อนไขที่ระบุ</p>
         </div>
-      ) : (
+      ) : viewMode === 'grid' ? (
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 animate-fade-in">
           {displayedMonks.map((monk) => {
             const isExpanded = expandedMonkIds[monk.id];
@@ -239,7 +284,7 @@ export default function MonksManagement() {
                         <CalendarIcon className="size-4 text-amber-600 dark:text-amber-500" />
                         <span>
                           {ranks.find(r => r.name === monk.rank)?.person_type === 'novice' ? 'วันบรรพชา' : 'วันอุปสมบท'}:{' '}
-                          <strong className="font-semibold text-amber-950 dark:text-amber-200">{monk.ordination_date}</strong>
+                          <strong className="font-semibold text-amber-950 dark:text-amber-200">{formatThaiDate(monk.ordination_date)}</strong>
                         </span>
                       </div>
                     )}
@@ -256,7 +301,7 @@ export default function MonksManagement() {
                       <div className="flex items-start gap-2.5 text-amber-800/85 dark:text-amber-400/85">
                         <Heart className="size-4 text-amber-600/80 dark:text-amber-500/85 mt-0.5 shrink-0" />
                         <div>
-                          <span className="font-bold text-amber-900/90 dark:text-amber-305">ข้อมูลบิดา-มารดา:</span>
+                          <span className="font-bold text-amber-900/90 dark:text-amber-350">ข้อมูลบิดา-มารดา:</span>
                           <p className="text-amber-950 dark:text-amber-200">
                             บิดา: {monk.father_name || 'ไม่ระบุ'} <br />
                             มารดา: {monk.mother_name || 'ไม่ระบุ'}
@@ -268,7 +313,7 @@ export default function MonksManagement() {
                       <div className="flex items-start gap-2.5 text-amber-800/85 dark:text-amber-400/85">
                         <MapPin className="size-4 text-amber-600/80 dark:text-amber-500/85 mt-0.5 shrink-0" />
                         <div>
-                          <span className="font-bold text-amber-900/90 dark:text-amber-305">ภูมิลำเนาเดิม:</span>
+                          <span className="font-bold text-amber-900/90 dark:text-amber-350">ภูมิลำเนาเดิม:</span>
                           <p className="text-amber-950 dark:text-amber-200 leading-relaxed">
                             {monk.domicile_address || 'ไม่ระบุ'}
                           </p>
@@ -280,9 +325,9 @@ export default function MonksManagement() {
                         <div className="flex items-start gap-2.5 text-amber-800/85 dark:text-amber-400/85">
                           <CalendarIcon className="size-4 text-amber-600/80 dark:text-amber-500/85 mt-0.5 shrink-0" />
                           <div>
-                            <span className="font-bold text-amber-900/90 dark:text-amber-305">วันที่บรรพชา (สามเณร):</span>
+                            <span className="font-bold text-amber-900/90 dark:text-amber-350">วันที่บรรพชา (สามเณร):</span>
                             <p className="text-amber-950 dark:text-amber-200">
-                              {monk.novice_ordination_date || 'ไม่ระบุ/อุปสมบทตรง'}
+                              {formatThaiDate(monk.novice_ordination_date) || 'ไม่ระบุ/อุปสมบทตรง'}
                             </p>
                           </div>
                         </div>
@@ -293,7 +338,7 @@ export default function MonksManagement() {
                         <div className="flex items-start gap-2.5 text-amber-800/85 dark:text-amber-400/85">
                           <Phone className="size-4 text-amber-600/80 dark:text-amber-500/85 mt-0.5 shrink-0" />
                           <div>
-                            <span className="font-bold text-amber-900/90 dark:text-amber-305">ติดต่อฉุกเฉิน:</span>
+                            <span className="font-bold text-amber-900/90 dark:text-amber-355">ติดต่อฉุกเฉิน:</span>
                             <p className="text-amber-950 dark:text-amber-200">
                               {monk.emergency_contact || 'ไม่ระบุ'} {monk.emergency_phone ? `(${monk.emergency_phone})` : ''}
                             </p>
@@ -326,33 +371,152 @@ export default function MonksManagement() {
                 </div>
 
                 {/* Action buttons */}
-                {(permissions.canEdit || permissions.canDelete) && (
-                  <div className="flex gap-2 mt-2 pt-2 border-t border-amber-100/50 dark:border-amber-950/40">
-                    {permissions.canEdit && (
-                      <Button
-                        variant="outline"
-                        onClick={() => handleOpenEditModal(monk)}
-                        className="flex-1 flex items-center justify-center gap-1 py-2 px-3 border-amber-200 dark:border-amber-950/80 hover:bg-amber-500/10 text-amber-800 dark:text-amber-300 dark:hover:text-amber-200 text-xs font-bold cursor-pointer"
-                      >
-                        <Edit className="size-3.5" />
-                        แก้ไขข้อมูล
-                      </Button>
-                    )}
-                    {permissions.canDelete && (
-                      <Button
-                        variant="destructive"
-                        onClick={() => handleDeleteMonk(monk.id)}
-                        className="flex-1 flex items-center justify-center gap-1 py-2 px-3 text-xs font-bold cursor-pointer"
-                      >
-                        <Trash className="size-3.5" />
-                        ลบข้อมูล
-                      </Button>
-                    )}
-                  </div>
-                )}
+                <div className="flex gap-2 mt-2 pt-2 border-t border-amber-100/50 dark:border-amber-950/40">
+                  <Button
+                    variant="outline"
+                    onClick={() => setDetailedMonk(monk)}
+                    className="flex-1 flex items-center justify-center gap-1 py-2 px-3 border-amber-200 dark:border-amber-950/80 hover:bg-amber-500/10 text-amber-800 dark:text-amber-300 dark:hover:text-amber-200 text-xs font-bold cursor-pointer"
+                  >
+                    <Info className="size-3.5" />
+                    ประวัติเต็ม
+                  </Button>
+                  {permissions.canEdit && (
+                    <Button
+                      variant="outline"
+                      onClick={() => handleOpenEditModal(monk)}
+                      className="flex-1 flex items-center justify-center gap-1 py-2 px-3 border-amber-200 dark:border-amber-950/80 hover:bg-amber-500/10 text-amber-800 dark:text-amber-300 dark:hover:text-amber-200 text-xs font-bold cursor-pointer"
+                    >
+                      <Edit className="size-3.5" />
+                      แก้ไข
+                    </Button>
+                  )}
+                  {permissions.canDelete && (
+                    <Button
+                      variant="destructive"
+                      onClick={() => handleDeleteMonk(monk.id)}
+                      className="px-3 py-2 flex items-center justify-center cursor-pointer"
+                      title="ลบ"
+                    >
+                      <Trash className="size-3.5" />
+                    </Button>
+                  )}
+                </div>
               </div>
             );
           })}
+        </div>
+      ) : (
+        /* Table View */
+        <div className="bg-white dark:bg-[#15110a] rounded-2xl border border-amber-200/40 dark:border-amber-950/30 overflow-hidden shadow-md shadow-amber-100/5 animate-fade-in">
+          <div className="overflow-x-auto">
+            <table className="w-full text-left border-collapse text-xs">
+              <thead>
+                <tr className="bg-amber-50/50 dark:bg-amber-950/15 border-b border-amber-200/30 dark:border-amber-950/30 text-amber-800/80 dark:text-amber-400 font-extrabold text-[11px]">
+                  <th className="p-4 w-12 text-center">รูปภาพ</th>
+                  <th className="p-4">ชื่อ-ฉายา</th>
+                  <th className="p-4">ตำแหน่ง</th>
+                  <th className="p-4 text-center">ประเภท</th>
+                  <th className="p-4">วันอุปสมบท/บรรพชา</th>
+                  <th className="p-4">เบอร์โทรศัพท์</th>
+                  <th className="p-4 text-center">สถานะ</th>
+                  <th className="p-4 text-center w-40">การจัดการ</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-amber-100/40 dark:divide-amber-950/20">
+                {displayedMonks.map((monk) => {
+                  const personType = ranks.find(r => r.name === monk.rank)?.person_type ?? 'monk';
+                  return (
+                    <tr key={monk.id} className="hover:bg-amber-50/10 dark:hover:bg-amber-950/5 transition-colors">
+                      <td className="p-4 text-center">
+                        <div className="flex justify-center">
+                          {monk.image_url ? (
+                            <img
+                              src={monk.image_url}
+                              className="w-10 h-10 rounded-full object-cover border border-amber-500/25 shadow-sm"
+                              alt={monk.name}
+                            />
+                          ) : (
+                            <div className="w-10 h-10 rounded-full bg-linear-to-tr from-amber-500/10 to-amber-600/10 border border-amber-500/20 flex items-center justify-center font-bold text-amber-800 dark:text-amber-400 text-sm">
+                              {monk.chaya && monk.chaya !== '-' ? monk.chaya[0] : monk.name?.[0] ?? '?'}
+                            </div>
+                          )}
+                        </div>
+                      </td>
+                      <td className="p-4">
+                        <div className="font-extrabold text-amber-950 dark:text-amber-100 text-sm">{monk.name}</div>
+                        {monk.chaya && monk.chaya !== '-' && (
+                          <div className="text-[10px] text-amber-700/60 dark:text-amber-500/50 italic mt-0.5 font-medium font-sans">ฉายา: {monk.chaya}</div>
+                        )}
+                      </td>
+                      <td className="p-4 font-semibold text-amber-900 dark:text-amber-250">
+                        {monk.rank}
+                      </td>
+                      <td className="p-4 text-center">
+                        <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                          personType === 'novice'
+                            ? 'bg-orange-500/10 text-orange-600 dark:text-orange-450 border border-orange-500/20'
+                            : personType === 'disciple'
+                            ? 'bg-blue-500/10 text-blue-600 dark:text-blue-450 border border-blue-500/20'
+                            : 'bg-amber-500/10 text-amber-700 dark:text-amber-500 border border-amber-500/20'
+                        }`}>
+                          {personType === 'novice' ? 'สามเณร' : personType === 'disciple' ? 'ศิษย์วัด' : 'พระภิกษุ'}
+                        </span>
+                      </td>
+                      <td className="p-4 text-amber-800/80 dark:text-amber-400">
+                        {personType !== 'disciple' ? formatThaiDate(monk.ordination_date) : '-'}
+                      </td>
+                      <td className="p-4 font-medium text-amber-900 dark:text-amber-200">
+                        {monk.phone || '-'}
+                      </td>
+                      <td className="p-4 text-center">
+                        <span className={`px-2.5 py-0.5 rounded-[4px] text-[10px] font-bold ${
+                          monk.status === 'active'
+                            ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-450'
+                            : monk.status === 'away'
+                            ? 'bg-sky-500/10 text-sky-600 dark:text-sky-455'
+                            : 'bg-amber-500/10 text-amber-700 dark:text-amber-500'
+                        }`}>
+                          {monk.status === 'active' ? 'อยู่จำพรรษา' : monk.status === 'away' ? 'จาริก' : 'ลาสิกขา'}
+                        </span>
+                      </td>
+                      <td className="p-4">
+                        <div className="flex justify-center items-center gap-1.5">
+                          <button
+                            type="button"
+                            onClick={() => setDetailedMonk(monk)}
+                            className="p-1.5 rounded-lg border border-amber-200/50 dark:border-amber-950 hover:bg-amber-500/10 text-amber-700 dark:text-amber-400 cursor-pointer"
+                            title="ดูประวัติเต็ม"
+                          >
+                            <Info className="size-4" />
+                          </button>
+                          {permissions.canEdit && (
+                            <button
+                              type="button"
+                              onClick={() => handleOpenEditModal(monk)}
+                              className="p-1.5 rounded-lg border border-amber-200/50 dark:border-amber-950 hover:bg-amber-500/10 text-amber-600 dark:text-amber-400 cursor-pointer"
+                              title="แก้ไข"
+                            >
+                              <Edit className="size-4" />
+                            </button>
+                          )}
+                          {permissions.canDelete && (
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteMonk(monk.id)}
+                              className="p-1.5 rounded-lg border border-amber-200/50 dark:border-amber-950 hover:bg-red-500/10 text-red-600 dark:text-red-400 cursor-pointer"
+                              title="ลบ"
+                            >
+                              <Trash className="size-4" />
+                            </button>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
 
@@ -466,12 +630,10 @@ export default function MonksManagement() {
                       <label className="text-xs font-bold text-amber-900/80 dark:text-amber-300">
                         {ranks.find(r => r.name === currentMonk.rank)?.person_type === 'novice' ? 'วันที่บรรพชา (เป็นสามเณร) *' : 'วันที่อุปสมบท (เป็นพระภิกษุ) *'}
                       </label>
-                      <input
-                        type="date"
+                      <ThaiDatePicker
                         required
                         value={currentMonk.ordination_date || ''}
-                        onChange={(e) => updateFormFields('ordination_date', e.target.value)}
-                        className="w-full px-3 py-2 text-xs rounded-lg border border-amber-200 dark:border-amber-950 bg-white dark:bg-[#110e08] text-amber-950 dark:text-amber-100 outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500"
+                        onChange={(val) => updateFormFields('ordination_date', val)}
                       />
                     </div>
                   )}
@@ -569,15 +731,167 @@ export default function MonksManagement() {
                     </div>
                   </div>
 
+                  {/* หนังสือสุทธิ (Certificate of Monkhood) */}
+                  <div className="col-span-2 sm:col-span-1 space-y-2">
+                    <label className="text-xs font-bold text-amber-900/80 dark:text-amber-300">หนังสือสุทธิ (อัปโหลดรูปภาพ/เอกสาร)</label>
+                    <div className="flex items-center gap-3">
+                      <div className="w-12 h-12 rounded-xl border-2 border-amber-200 dark:border-amber-950 bg-amber-50/30 dark:bg-amber-950/10 overflow-hidden flex items-center justify-center shrink-0 text-amber-700 dark:text-amber-400">
+                        {isUploadingCertificate ? (
+                          <Loader2 className="size-5 animate-spin text-amber-500" />
+                        ) : currentMonk.certificate_url ? (
+                          <a href={currentMonk.certificate_url} target="_blank" rel="noopener noreferrer" className="hover:scale-105 transition-transform">
+                            <svg xmlns="http://www.w3.org/2000/svg" className="size-6 text-emerald-600 dark:text-emerald-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/></svg>
+                          </a>
+                        ) : (
+                          <svg xmlns="http://www.w3.org/2000/svg" className="size-6 text-amber-400/60 dark:text-amber-700" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/></svg>
+                        )}
+                      </div>
+                      
+                      <div className="flex-1 space-y-1">
+                        <label
+                          htmlFor="monk-cert-upload"
+                          className={`flex items-center justify-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-dashed border-amber-400 dark:border-amber-700 bg-amber-50/20 dark:bg-amber-950/10 text-[10px] font-bold text-amber-700 dark:text-amber-400 cursor-pointer hover:bg-amber-500/10 transition-colors ${
+                            isUploadingCertificate ? 'opacity-50 cursor-not-allowed' : ''
+                          }`}
+                        >
+                          <svg xmlns="http://www.w3.org/2000/svg" className="size-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                          <span>{isUploadingCertificate ? 'กำลังอัปโหลด...' : currentMonk.certificate_url ? 'เปลี่ยนเอกสาร' : 'อัปโหลดหนังสือสุทธิ'}</span>
+                        </label>
+                        <input
+                          id="monk-cert-upload"
+                          type="file"
+                          accept="image/*,application/pdf"
+                          className="hidden"
+                          disabled={isUploadingCertificate}
+                          onChange={async (e) => {
+                            const file = e.target.files?.[0];
+                            if (!file) return;
+
+                            setIsUploadingCertificate(true);
+                            try {
+                              const formData = new FormData();
+                              formData.append('file', file);
+
+                              const res = await fetch('/api/upload/drive', {
+                                method: 'POST',
+                                body: formData
+                              });
+
+                              const data = await res.json();
+                              if (data.success && data.path) {
+                                updateFormFields('certificate_url', data.path);
+                              } else {
+                                alert(data.error || 'ไม่สามารถอัปโหลดไฟล์หนังสือสุทธิได้');
+                              }
+                            } catch (err: any) {
+                              console.error('Upload cert error:', err);
+                              alert('เกิดข้อผิดพลาดในการอัปโหลดไฟล์หนังสือสุทธิ');
+                            } finally {
+                              setIsUploadingCertificate(false);
+                            }
+                          }}
+                        />
+                        {currentMonk.certificate_url && (
+                          <div className="flex gap-2 text-[9px]">
+                            <a href={currentMonk.certificate_url} target="_blank" rel="noopener noreferrer" className="text-amber-600 hover:underline">คลิกเปิดดู</a>
+                            <button
+                              type="button"
+                              disabled={isUploadingCertificate}
+                              onClick={() => updateFormFields('certificate_url', '')}
+                              className="text-red-500 hover:underline cursor-pointer"
+                            >
+                              ลบไฟล์ออก
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* สำเนาบัตร ปชช (ID Card) */}
+                  <div className="col-span-2 sm:col-span-1 space-y-2">
+                    <label className="text-xs font-bold text-amber-900/80 dark:text-amber-300">สำเนาบัตร ปชช (อัปโหลดรูปภาพ/เอกสาร)</label>
+                    <div className="flex items-center gap-3">
+                      <div className="w-12 h-12 rounded-xl border-2 border-amber-200 dark:border-amber-950 bg-amber-50/30 dark:bg-amber-950/10 overflow-hidden flex items-center justify-center shrink-0 text-amber-700 dark:text-amber-400">
+                        {isUploadingIdCard ? (
+                          <Loader2 className="size-5 animate-spin text-amber-500" />
+                        ) : currentMonk.id_card_url ? (
+                          <a href={currentMonk.id_card_url} target="_blank" rel="noopener noreferrer" className="hover:scale-105 transition-transform">
+                            <svg xmlns="http://www.w3.org/2000/svg" className="size-6 text-emerald-600 dark:text-emerald-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="9" cy="10" r="2"/><path d="M15 13h4M15 17h4"/><path d="M5 18a4 4 0 0 1 8 0"/></svg>
+                          </a>
+                        ) : (
+                          <svg xmlns="http://www.w3.org/2000/svg" className="size-6 text-amber-400/60 dark:text-amber-700" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="9" cy="10" r="2"/><path d="M15 13h4M15 17h4"/><path d="M5 18a4 4 0 0 1 8 0"/></svg>
+                        )}
+                      </div>
+                      
+                      <div className="flex-1 space-y-1">
+                        <label
+                          htmlFor="monk-idcard-upload"
+                          className={`flex items-center justify-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-dashed border-amber-400 dark:border-amber-700 bg-amber-50/20 dark:bg-amber-950/10 text-[10px] font-bold text-amber-700 dark:text-amber-400 cursor-pointer hover:bg-amber-500/10 transition-colors ${
+                            isUploadingIdCard ? 'opacity-50 cursor-not-allowed' : ''
+                          }`}
+                        >
+                          <svg xmlns="http://www.w3.org/2000/svg" className="size-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                          <span>{isUploadingIdCard ? 'กำลังอัปโหลด...' : currentMonk.id_card_url ? 'เปลี่ยนเอกสาร' : 'อัปโหลดสำเนาบัตร'}</span>
+                        </label>
+                        <input
+                          id="monk-idcard-upload"
+                          type="file"
+                          accept="image/*,application/pdf"
+                          className="hidden"
+                          disabled={isUploadingIdCard}
+                          onChange={async (e) => {
+                            const file = e.target.files?.[0];
+                            if (!file) return;
+
+                            setIsUploadingIdCard(true);
+                            try {
+                              const formData = new FormData();
+                              formData.append('file', file);
+
+                              const res = await fetch('/api/upload/drive', {
+                                method: 'POST',
+                                body: formData
+                              });
+
+                              const data = await res.json();
+                              if (data.success && data.path) {
+                                updateFormFields('id_card_url', data.path);
+                              } else {
+                                alert(data.error || 'ไม่สามารถอัปโหลดสำเนาบัตร ปชช ได้');
+                              }
+                            } catch (err: any) {
+                              console.error('Upload id card error:', err);
+                              alert('เกิดข้อผิดพลาดในการอัปโหลดสำเนาบัตร ปชช');
+                            } finally {
+                              setIsUploadingIdCard(false);
+                            }
+                          }}
+                        />
+                        {currentMonk.id_card_url && (
+                          <div className="flex gap-2 text-[9px]">
+                            <a href={currentMonk.id_card_url} target="_blank" rel="noopener noreferrer" className="text-amber-600 hover:underline">คลิกเปิดดู</a>
+                            <button
+                              type="button"
+                              disabled={isUploadingIdCard}
+                              onClick={() => updateFormFields('id_card_url', '')}
+                              className="text-red-500 hover:underline cursor-pointer"
+                            >
+                              ลบไฟล์ออก
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
                   {/* Novice Ordination Date */}
                   {ranks.find(r => r.name === currentMonk.rank)?.person_type === 'monk' ? (
                     <div className="space-y-1 animate-fade-in">
                       <label className="text-xs font-bold text-amber-900/80 dark:text-amber-300">วันที่บรรพชา (เป็นสามเณร) (ระบุถ้ามี)</label>
-                      <input
-                        type="date"
+                      <ThaiDatePicker
                         value={currentMonk.novice_ordination_date || ''}
-                        onChange={(e) => updateFormFields('novice_ordination_date', e.target.value)}
-                        className="w-full px-3 py-2 text-xs rounded-lg border border-amber-200 dark:border-amber-950 bg-white dark:bg-[#110e08] text-amber-950 dark:text-amber-100 outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500"
+                        onChange={(val) => updateFormFields('novice_ordination_date', val)}
                       />
                     </div>
                   ) : (
@@ -736,10 +1050,10 @@ export default function MonksManagement() {
                   <div className="bg-amber-50/10 dark:bg-amber-950/5 p-4 rounded-xl border border-amber-200/30 dark:border-amber-950/20 space-y-2 animate-fade-in">
                     <h5 className="font-bold text-amber-900 dark:text-amber-300 border-b border-amber-200/30 pb-1">วันบรรพชา / อุปสมบท</h5>
                     <p className="text-amber-800 dark:text-amber-400">
-                      วันที่บรรพชา (สามเณร): <strong className="text-amber-950 dark:text-amber-200">{detailedMonk.novice_ordination_date || 'ไม่ระบุ/อุปสมบทตรง'}</strong>
+                      วันที่บรรพชา (สามเณร): <strong className="text-amber-950 dark:text-amber-200">{formatThaiDate(detailedMonk.novice_ordination_date) || 'ไม่ระบุ/อุปสมบทตรง'}</strong>
                     </p>
                     <p className="text-amber-800 dark:text-amber-400">
-                      วันที่อุปสมบท (พระสงฆ์): <strong className="text-amber-950 dark:text-amber-200">{detailedMonk.ordination_date || 'ไม่ระบุ/เป็นสามเณร'}</strong>
+                      วันที่อุปสมบท (พระสงฆ์): <strong className="text-amber-950 dark:text-amber-200">{formatThaiDate(detailedMonk.ordination_date) || 'ไม่ระบุ/เป็นสามเณร'}</strong>
                     </p>
                   </div>
                 )}
@@ -780,6 +1094,52 @@ export default function MonksManagement() {
                   <p className="text-amber-800 dark:text-amber-400 leading-relaxed">
                     {detailedMonk.domicile_address || 'ไม่มีข้อมูลที่อยู่ตามภูมิลำเนา'}
                   </p>
+                </div>
+
+                {/* Documents Section */}
+                <div className="col-span-1 md:col-span-2 bg-amber-50/10 dark:bg-amber-950/5 p-4 rounded-xl border border-amber-200/30 dark:border-amber-950/20 space-y-2 animate-fade-in">
+                  <h5 className="font-bold text-amber-900 dark:text-amber-300 border-b border-amber-200/30 pb-1">เอกสารแนบประจำตัว</h5>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-1">
+                    {/* Certificate of Monkhood */}
+                    <div className="flex items-center justify-between p-2.5 rounded-lg bg-amber-50/30 dark:bg-amber-950/20 border border-amber-100 dark:border-amber-950/40">
+                      <div className="flex items-center gap-2">
+                        <svg xmlns="http://www.w3.org/2000/svg" className="size-5 text-amber-800 dark:text-amber-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/></svg>
+                        <span className="font-semibold text-amber-900 dark:text-amber-300">หนังสือสุทธิ</span>
+                      </div>
+                      {detailedMonk.certificate_url ? (
+                        <a
+                          href={detailedMonk.certificate_url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="px-2.5 py-1 rounded bg-amber-500 hover:bg-amber-600 text-white text-[10px] font-bold shadow-xs hover:scale-102 transition-transform cursor-pointer"
+                        >
+                          เปิดดูเอกสาร
+                        </a>
+                      ) : (
+                        <span className="text-[10px] text-amber-700/50 dark:text-amber-500/30 italic">ไม่ได้อัปโหลดไว้</span>
+                      )}
+                    </div>
+
+                    {/* ID Card Copy */}
+                    <div className="flex items-center justify-between p-2.5 rounded-lg bg-amber-50/30 dark:bg-amber-950/20 border border-amber-100 dark:border-amber-950/40">
+                      <div className="flex items-center gap-2">
+                        <svg xmlns="http://www.w3.org/2000/svg" className="size-5 text-amber-800 dark:text-amber-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="9" cy="10" r="2"/><path d="M15 13h4M15 17h4"/><path d="M5 18a4 4 0 0 1 8 0"/></svg>
+                        <span className="font-semibold text-amber-900 dark:text-amber-300">สำเนาบัตร ปชช</span>
+                      </div>
+                      {detailedMonk.id_card_url ? (
+                        <a
+                          href={detailedMonk.id_card_url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="px-2.5 py-1 rounded bg-amber-500 hover:bg-amber-600 text-white text-[10px] font-bold shadow-xs hover:scale-102 transition-transform cursor-pointer"
+                        >
+                          เปิดดูเอกสาร
+                        </a>
+                      ) : (
+                        <span className="text-[10px] text-amber-700/50 dark:text-amber-500/30 italic">ไม่ได้อัปโหลดไว้</span>
+                      )}
+                    </div>
+                  </div>
                 </div>
               </div>
 

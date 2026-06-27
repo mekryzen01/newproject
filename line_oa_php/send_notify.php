@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Standalone LINE OA Notification Sender API
  * 
@@ -25,13 +26,46 @@ require_once __DIR__ . '/config.php';
 require_once __DIR__ . '/db_connect.php';
 
 // Helper function to log notification transactions
-function logNotification($msg) {
+function logNotification($msg)
+{
     if (DEBUG_LOG) {
         $timestamp = date('Y-m-d H:i:s');
         error_log("[{$timestamp}][Notification] {$msg}\n", 3, LOG_FILE);
     }
 }
+function ConvertToThaiDate($value, $short = '1', $need_time = '1', $need_time_second = '0')
+{
+    $date_arr = explode(' ', $value);
+    $date = $date_arr[0];
+    if (isset($date_arr[1])) {
+        $time = $date_arr[1];
+    } else {
+        $time = '';
+    }
 
+    $value = $date;
+    if ($value != "0000-00-00" && $value != '' && strpos($value, '-') !== false) {
+        $x = explode("-", $value);
+        if ($short == false)
+            $arrMM = array(1 => "มกราคม", "กุมภาพันธ์", "มีนาคม", "เมษายน", "พฤษภาคม", "มิถุนายน", "กรกฎาคม", "สิงหาคม", "กันยายน", "ตุลาคม", "พฤศจิกายน", "ธันวาคม");
+        else
+            $arrMM = array(1 => "ม.ค.", "ก.พ.", "มี.ค.", "เม.ย.", "พ.ค.", "มิ.ย.", "ก.ค.", "ส.ค.", "ก.ย.", "ต.ค.", "พ.ย.", "ธ.ค.");
+        // return $x[2]." ".$arrMM[(int)$x[1]]." ".($x[0]>2500?$x[0]:$x[0]+543);
+        if ($need_time == '1') {
+            if ($need_time_second == '1') {
+                $time_format = $time != '' ? date('H:i:s น.', strtotime($time)) : '';
+            } else {
+                $time_format = $time != '' ? date('H:i น.', strtotime($time)) : '';
+            }
+        } else {
+            $time_format = '';
+        }
+
+        return (int)$x[2] . " " . $arrMM[(int)$x[1]] . " " . ($x[0] > 2500 ? $x[0] : $x[0] + 543) . " " . $time_format;
+    } else {
+        return $value;
+    }
+}
 // Set response headers
 header('Content-Type: application/json');
 
@@ -79,27 +113,41 @@ try {
         exit();
     }
 
-    // 3. Format assigned monks list
+    // 3. Format assigned monks list as numbered lines
     $monksList = 'ยังไม่ได้ระบุ';
     if (isset($event['assigned_monks_names'])) {
-        if (is_array($event['assigned_monks_names'])) {
-            $monksList = implode(', ', array_filter($event['assigned_monks_names']));
+        $assignedMonks = $event['assigned_monks_names'];
+        $monksArray = [];
+
+        if (is_array($assignedMonks)) {
+            $monksArray = array_filter(array_map('trim', $assignedMonks), fn($name) => $name !== '');
         } else {
-            $monksList = trim($event['assigned_monks_names']);
+            // Support comma-separated or newline-separated strings
+            $monksArray = array_filter(array_map('trim', preg_split('/[\r\n,]+/', $assignedMonks)), fn($name) => $name !== '');
+        }
+
+        if (!empty($monksArray)) {
+            $monksList = '';
+            foreach (array_values($monksArray) as $index => $name) {
+                $monksList .= ($index + 1) . '. ' . $name;
+                if ($index < count($monksArray) - 1) {
+                    $monksList .= "\n";
+                }
+            }
         }
     }
-    if (empty($monksList)) {
+    if (empty(trim($monksList))) {
         $monksList = 'ยังไม่ได้ระบุ';
     }
 
     // 4. Construct Thai notification message
     $textMessage = '';
-    
+
     if ($action === 'create') {
         $textMessage .= "📢 แจ้งเตือนงานนิมนต์ใหม่\n";
         $textMessage .= "------------------------\n";
         $textMessage .= "ชื่องาน: " . ($event['title'] ?? 'ไม่ระบุชื่องาน') . "\n";
-        $textMessage .= "วันที่: " . ($event['date'] ?? 'ไม่ระบุวันที่') . "\n";
+        $textMessage .= "วันที่: " . ConvertToThaiDate($event['date'] ?? 'ไม่ระบุวันที่', 0) . "\n";
         $textMessage .= "เวลา: " . ($event['time'] ?? 'ไม่ระบุเวลา') . " น.\n";
         $textMessage .= "สถานที่: " . ($event['location'] ?? 'ไม่ระบุสถานที่') . "\n";
         $textMessage .= "เจ้าภาพ: " . ($event['host_name'] ?? 'ไม่ระบุ') . "\n";
@@ -114,11 +162,11 @@ try {
                 $statusText = 'ยกเลิก';
             }
         }
-        
+
         $textMessage .= "🔔 อัปเดตข้อมูลงานนิมนต์\n";
         $textMessage .= "------------------------\n";
         $textMessage .= "ชื่องาน: " . ($event['title'] ?? 'ไม่ระบุชื่องาน') . "\n";
-        $textMessage .= "วันที่: " . ($event['date'] ?? 'ไม่ระบุวันที่') . "\n";
+        $textMessage .= "วันที่: " . ConvertToThaiDate($event['date'] ?? 'ไม่ระบุวันที่', 0) . "\n";
         $textMessage .= "เวลา: " . ($event['time'] ?? 'ไม่ระบุเวลา') . " น.\n";
         $textMessage .= "สถานที่: " . ($event['location'] ?? 'ไม่ระบุสถานที่') . "\n";
         $textMessage .= "เจ้าภาพ: " . ($event['host_name'] ?? 'ไม่ระบุ') . "\n";
@@ -129,8 +177,44 @@ try {
         $textMessage .= "❌ ยกเลิกงานนิมนต์\n";
         $textMessage .= "------------------------\n";
         $textMessage .= "ชื่องาน: " . ($event['title'] ?? 'ไม่ระบุชื่องาน') . "\n";
-        $textMessage .= "วันที่: " . ($event['date'] ?? 'ไม่ระบุวันที่') . "\n";
+        $textMessage .= "วันที่: " . ConvertToThaiDate($event['date'] ?? 'ไม่ระบุวันที่', 0) . "\n";
         $textMessage .= "เวลา: " . ($event['time'] ?? 'ไม่ระบุเวลา') . " น.";
+    } elseif ($action === 'create_booking') {
+        $textMessage .= "🏫 แจ้งเตือนการจองศาลาใหม่\n";
+        $textMessage .= "------------------------\n";
+        $textMessage .= "ศาลา: " . ($event['sala_name'] ?? 'ไม่ระบุศาลา') . "\n";
+        $textMessage .= "งาน/กิจกรรม: " . ($event['event_title'] ?? 'ไม่ระบุ') . "\n";
+        $textMessage .= "ประเภทงาน: " . getEventTypeText($event['event_type'] ?? '') . "\n";
+        $textMessage .= "ผู้จอง: " . ($event['booker_name'] ?? 'ไม่ระบุ') . "\n";
+        $textMessage .= "เบอร์โทร: " . ($event['booker_phone'] ?? 'ไม่ระบุ') . "\n";
+        $textMessage .= "ตั้งแต่วันที่: " . ConvertToThaiDate($event['start_date'] ?? 'ไม่ระบุ', 0, 0) . "\n";
+        $textMessage .= "ถึงวันที่: " . ConvertToThaiDate($event['end_date'] ?? 'ไม่ระบุ', 0, 0) . "\n";
+        $textMessage .= "จำนวน: " . ($event['num_days'] ?? 0) . " วัน\n";
+        $textMessage .= "สถานะ: " . getBookingStatusText($event['status'] ?? 'pending');
+        if (!empty($event['notes'])) {
+            $textMessage .= "\nหมายเหตุ: " . $event['notes'];
+        }
+    } elseif ($action === 'update_booking') {
+        $textMessage .= "📝 อัปเดตการจองศาลา\n";
+        $textMessage .= "------------------------\n";
+        $textMessage .= "ศาลา: " . ($event['sala_name'] ?? 'ไม่ระบุศาลา') . "\n";
+        $textMessage .= "งาน/กิจกรรม: " . ($event['event_title'] ?? 'ไม่ระบุ') . "\n";
+        $textMessage .= "ผู้จอง: " . ($event['booker_name'] ?? 'ไม่ระบุ') . "\n";
+        $textMessage .= "เบอร์โทร: " . ($event['booker_phone'] ?? 'ไม่ระบุ') . "\n";
+        $textMessage .= "ตั้งแต่วันที่: " . ConvertToThaiDate($event['start_date'] ?? 'ไม่ระบุ', 0, 0) . "\n";
+        $textMessage .= "ถึงวันที่: " . ConvertToThaiDate($event['end_date'] ?? 'ไม่ระบุ', 0, 0) . "\n";
+        $textMessage .= "จำนวน: " . ($event['num_days'] ?? 0) . " วัน\n";
+        $textMessage .= "สถานะ: " . getBookingStatusText($event['status'] ?? 'pending');
+        if (!empty($event['notes'])) {
+            $textMessage .= "\nหมายเหตุ: " . $event['notes'];
+        }
+    } elseif ($action === 'delete_booking') {
+        $textMessage .= "❌ ยกเลิกการจองศาลา\n";
+        $textMessage .= "------------------------\n";
+        $textMessage .= "ศาลา: " . ($event['sala_name'] ?? 'ไม่ระบุศาลา') . "\n";
+        $textMessage .= "งาน/กิจกรรม: " . ($event['event_title'] ?? 'ไม่ระบุ') . "\n";
+        $textMessage .= "ผู้จอง: " . ($event['booker_name'] ?? 'ไม่ระบุ') . "\n";
+        $textMessage .= "วันที่จองเดิม: " . ConvertToThaiDate($event['start_date'] ?? '', 0, 0) . " ถึง " . ConvertToThaiDate($event['end_date'] ?? '', 0, 0);
     } else {
         // Fallback for custom or direct text notifications
         $textMessage = $event['message'] ?? (is_string($event) ? $event : json_encode($event, JSON_UNESCAPED_UNICODE));
@@ -166,17 +250,17 @@ try {
     ]);
     curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
     curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false); // Recommended for quick setup on shared servers
-    
+
     $response = curl_exec($ch);
-    $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-    
+    $httpCode = curl_getinfo($ch, CURLINFO_CODE);
+
     if (curl_errno($ch)) {
         $curlError = curl_error($ch);
         logNotification("cURL Failure: " . $curlError);
         throw new Exception("cURL Error: " . $curlError);
     }
     curl_close($ch);
-    
+
     logNotification("LINE API response code: {$httpCode}, Response: {$response}");
 
     if ($httpCode >= 200 && $httpCode < 300) {
@@ -192,7 +276,6 @@ try {
             'details' => json_decode($response, true) ?: $response
         ]);
     }
-
 } catch (Exception $e) {
     logNotification("Notification processing error: " . $e->getMessage());
     http_response_code(500);
@@ -200,4 +283,36 @@ try {
         'status' => 'error',
         'message' => $e->getMessage()
     ]);
+}
+// Format helpers
+function getEventTypeText($type)
+{
+    switch ($type) {
+        case 'funeral':
+            return 'งานศพ/สวดอภิธรรม';
+        case 'ceremony':
+            return 'งานทำบุญ/ศาสนพิธี';
+        case 'wedding':
+            return 'งานมงคลสมรส';
+        case 'other':
+            return 'อื่น ๆ';
+        default:
+            return 'ไม่ระบุ';
+    }
+}
+
+function getBookingStatusText($status)
+{
+    switch ($status) {
+        case 'pending':
+            return 'รอการยืนยัน';
+        case 'confirmed':
+            return 'ยืนยันการจองแล้ว';
+        case 'completed':
+            return 'เสร็จสิ้นการใช้งาน';
+        case 'cancelled':
+            return 'ยกเลิกการจอง';
+        default:
+            return 'รอการยืนยัน';
+    }
 }

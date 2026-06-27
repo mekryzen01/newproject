@@ -21,6 +21,9 @@ import { useScheduleController } from '@/app/Controllers/useScheduleController';
 import { CustomDialog } from '@/components/ui/custom-dialog';
 import { usePermission } from '@/lib/usePermission';
 import { db, Sala, SalaBooking } from '@/lib/db';
+import { formatThaiDate } from '@/lib/utils';
+import { ThaiDatePicker } from '@/components/ui/thai-date-picker';
+import { checkWanKaoKong } from '@/lib/lanna-calendar';
 
 // Thai Month Names
 const THAI_MONTHS = [
@@ -534,13 +537,14 @@ export default function ScheduleManagement() {
 
             {/* Calendar Cells Grid */}
             <div className="grid grid-cols-7 gap-2">
-              {calendarCells.map((cell, idx) => {
+               {calendarCells.map((cell, idx) => {
                 const cellDateStr = formatDateStr(cell.date);
                 const isToday = isTodayDate(cell.date);
                 const dayEvents = getEventsForDate(cellDateStr);
                 const dayBookings = getBookingsForDate(cellDateStr);
                 const specialInfo = getSpecialDayInfo(cellDateStr);
                 const isSelected = selectedDateStr === cellDateStr;
+                const wanKaoKongInfo = checkWanKaoKong(cell.date);
 
                 // Blinking effect: pulse today, or breathing blink if the cell contains events
                 const blinkClass = isToday 
@@ -557,7 +561,7 @@ export default function ScheduleManagement() {
                         : 'bg-slate-500/[0.02] dark:bg-[#15110a]/5 border-slate-200/10 dark:border-slate-900/5 text-amber-950/25 dark:text-amber-500/20 hover:border-amber-500/20'
                     } ${isSelected ? 'ring-2 ring-amber-500 border-transparent bg-amber-500/5 dark:bg-amber-500/[0.03]' : ''} ${blinkClass}`}
                   >
-                    {/* Date and Wan Phra lotus badge */}
+                    {/* Date and badges */}
                     <div className="flex justify-between items-start">
                       <span className={`text-[11px] font-bold w-5 h-5 flex items-center justify-center rounded-full ${
                         isToday 
@@ -567,14 +571,24 @@ export default function ScheduleManagement() {
                         {cell.date.getDate()}
                       </span>
                       
-                      {specialInfo.isWanPhra && (
-                        <span 
-                          className="bg-yellow-500/20 text-yellow-700 dark:text-yellow-400 text-[8px] font-extrabold px-1 rounded flex items-center gap-0.5 shrink-0" 
-                          title={`วันพระ: ${specialInfo.label}`}
-                        >
-                          🌸 วันพระ
-                        </span>
-                      )}
+                      <div className="flex flex-col gap-0.5 items-end">
+                        {specialInfo.isWanPhra && (
+                          <span 
+                            className="bg-yellow-500/20 text-yellow-700 dark:text-yellow-400 text-[8px] font-extrabold px-1 py-0.5 rounded flex items-center gap-0.5 shrink-0" 
+                            title={`วันพระ: ${specialInfo.label}`}
+                          >
+                            🌸 วันพระ
+                          </span>
+                        )}
+                        {wanKaoKongInfo.isWanKaoKong && (
+                          <span 
+                            className="bg-red-500/20 text-red-700 dark:text-red-400 text-[8px] font-extrabold px-1 py-0.5 rounded flex items-center gap-0.5 shrink-0 animate-pulse" 
+                            title={`วันเก้ากอง (ห้ามเผาศพ): วัน${wanKaoKongInfo.daySign} เดือน ${wanKaoKongInfo.lannaMonthName}`}
+                          >
+                            🚫 เก้ากอง
+                          </span>
+                        )}
+                      </div>
                     </div>
 
                     {/* Holiday names */}
@@ -656,12 +670,13 @@ export default function ScheduleManagement() {
               const dayEvents = getEventsForDate(selectedDateStr);
               const dayBookings = getBookingsForDate(selectedDateStr);
               const specialInfo = getSpecialDayInfo(selectedDateStr);
+              const wanKaoKongInfo = checkWanKaoKong(new Date(selectedDateStr));
               
               return (
                 <div className="space-y-3">
-                  {/* Holidays or Wan Phra if any */}
-                  {(specialInfo.isWanPhra || specialInfo.holidayName) && (
-                    <div className="bg-amber-500/5 border border-amber-500/20 p-3.5 rounded-xl flex flex-col gap-1 text-xs">
+                  {/* Holidays, Wan Phra or Wan Kao Kong if any */}
+                  {(specialInfo.isWanPhra || specialInfo.holidayName || wanKaoKongInfo.isWanKaoKong) && (
+                    <div className="bg-amber-500/5 border border-amber-500/20 p-3.5 rounded-xl flex flex-col gap-1.5 text-xs">
                       {specialInfo.holidayName && (
                         <div className="text-red-600 dark:text-red-400 font-extrabold flex items-center gap-1">
                           📌 วันสำคัญของไทย: {specialInfo.holidayName}
@@ -670,6 +685,11 @@ export default function ScheduleManagement() {
                       {specialInfo.isWanPhra && (
                         <div className="text-yellow-700 dark:text-yellow-400 font-extrabold flex items-center gap-1">
                           🌸 วันธรรมสวนะ (วันพระ): {specialInfo.label}
+                        </div>
+                      )}
+                      {wanKaoKongInfo.isWanKaoKong && (
+                        <div className="text-red-600 dark:text-red-500 font-extrabold flex items-center gap-1">
+                          🚫 วันเก้ากอง (ห้ามเผาศพ): วัน{wanKaoKongInfo.daySign} (เดือน {wanKaoKongInfo.lannaMonthName})
                         </div>
                       )}
                     </div>
@@ -760,7 +780,7 @@ export default function ScheduleManagement() {
                             </div>
                             <h4 className="font-extrabold text-xs text-blue-950 dark:text-blue-100">{b.event_title}</h4>
                             <div className="text-[11px] text-blue-800/80 dark:text-blue-400 space-y-1.5">
-                              <div><strong>ช่วงเวลา:</strong> {b.start_date} ถึง {b.end_date} (รวม {b.num_days} วัน)</div>
+                              <div><strong>ช่วงเวลา:</strong> {formatThaiDate(b.start_date)} ถึง {formatThaiDate(b.end_date)} (รวม {b.num_days} วัน)</div>
                               <div><strong>ผู้ติดต่อ:</strong> {b.booker_name} {b.booker_phone && `(${b.booker_phone})`}</div>
                               {b.notes && <div><strong>หมายเหตุ:</strong> <span className="italic">{b.notes}</span></div>}
                             </div>
@@ -807,7 +827,7 @@ export default function ScheduleManagement() {
                           {event.status === 'upcoming' ? 'เร็ว ๆ นี้' : event.status === 'completed' ? 'เสร็จสิ้นแล้ว' : 'ยกเลิก'}
                         </span>
                         <span className="text-xs font-semibold text-amber-800/50 dark:text-amber-400/40 flex items-center gap-1">
-                          <CalendarIcon className="size-3.5" /> {event.date}
+                          <CalendarIcon className="size-3.5" /> {formatThaiDate(event.date)}
                         </span>
                         <span className="text-xs font-semibold text-amber-800/50 dark:text-amber-400/40 flex items-center gap-1">
                           <Clock className="size-3.5" /> เวลา: {event.time} น.
@@ -942,12 +962,10 @@ export default function ScheduleManagement() {
                 {/* Date */}
                 <div className="space-y-1">
                   <label className="text-xs font-bold text-amber-900/80 dark:text-amber-300">วันที่จัดพิธี</label>
-                  <input
-                    type="date"
+                  <ThaiDatePicker
                     required
                     value={currentEvent.date || ''}
-                    onChange={(e) => updateFormFields('date', e.target.value)}
-                    className="w-full px-3 py-2 text-xs rounded-lg border border-amber-200 dark:border-amber-950 bg-white dark:bg-[#110e08] text-amber-950 dark:text-amber-100 outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500"
+                    onChange={(val) => updateFormFields('date', val)}
                   />
                 </div>
 

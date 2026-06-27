@@ -19,6 +19,8 @@ export const monks = pgTable('monks', {
   phone: text('phone').notNull(),
   status: text('status').notNull(), // 'active' | 'retired' | 'away'
   imageUrl: text('image_url'),
+  certificateUrl: text('certificate_url'),
+  idCardUrl: text('id_card_url'),
   fatherName: text('father_name'),
   motherName: text('mother_name'),
   emergencyContact: text('emergency_contact'),
