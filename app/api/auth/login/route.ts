@@ -32,12 +32,22 @@ export async function POST(request: Request) {
         const userList = await db.users.list();
         const dbUser = userList.find(u => u.email.toLowerCase() === data.session.user.email?.toLowerCase());
 
+        if (!dbUser) {
+          // Sign out immediately if no profile exists in public.users
+          await supabase.auth.signOut().catch(() => {});
+          return NextResponse.json(
+            { error: 'ไม่พบบัญชีนี้ในทำเนียบผู้ใช้งานวัด กรุณาติดต่อแอดมินหรือลงทะเบียนใหม่' },
+            { status: 403 }
+          );
+        }
+
         const sessionWithRole = {
           ...data.session,
           user: {
             ...data.session.user,
-            role: dbUser?.role || 'staff',
-            name: dbUser?.fullName || data.session.user.email
+            role: dbUser.role,
+            name: dbUser.fullName || data.session.user.email,
+            monk_id: dbUser.monk_id || undefined
           }
         };
 

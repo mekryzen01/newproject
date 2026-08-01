@@ -21,6 +21,8 @@ import { Button } from '@/components/ui/button';
 import { useUsersController } from '@/app/Controllers/useUsersController';
 import { CustomDialog } from '@/components/ui/custom-dialog';
 import { usePermission } from '@/lib/usePermission';
+import { db, Monk } from '@/lib/db';
+import { ROLE_LABELS, ROLE_COLORS, Role } from '@/lib/permissions';
 
 export default function UsersManagement() {
   const router = useRouter();
@@ -43,6 +45,11 @@ export default function UsersManagement() {
   } = useUsersController();
 
   const [searchQuery, setSearchQuery] = React.useState('');
+  const [monks, setMonks] = React.useState<Monk[]>([]);
+
+  React.useEffect(() => {
+    db.monks.list().then(setMonks).catch(console.error);
+  }, []);
 
   const filteredUsers = users.filter(
     (u) =>
@@ -165,14 +172,8 @@ export default function UsersManagement() {
             >
               {/* Corner Role Badge */}
               <div className="absolute top-0 right-0">
-                <span className={`text-[9px] font-bold px-3 py-1 rounded-bl-xl border-l border-b border-amber-200/30 dark:border-amber-950/40 ${
-                  user.role === 'admin'
-                    ? 'bg-rose-500/10 text-rose-600 dark:text-rose-400'
-                    : user.role === 'editor'
-                    ? 'bg-amber-500/10 text-amber-700 dark:text-amber-500'
-                    : 'bg-sky-500/10 text-sky-600 dark:text-sky-400'
-                }`}>
-                  {user.role === 'admin' ? 'ผู้ดูแลระบบ' : user.role === 'editor' ? 'ผู้แก้ไขข้อมูล' : 'เจ้าหน้าที่'}
+                <span className={`text-[9px] font-bold px-3 py-1 rounded-bl-xl border-l border-b border-amber-200/30 dark:border-amber-950/40 ${ROLE_COLORS[user.role as Role] || ROLE_COLORS.staff}`}>
+                  {ROLE_LABELS[user.role as Role] || 'เจ้าหน้าที่'}
                 </span>
               </div>
 
@@ -186,7 +187,17 @@ export default function UsersManagement() {
                     <h3 className="font-bold text-base text-amber-950 dark:text-amber-100 font-heading">
                       {user.fullName}
                     </h3>
-                    <p className="text-[10px] text-amber-700/60 dark:text-amber-400/60">
+                    {user.monk_id && (() => {
+                      const linked = monks.find(m => m.id === user.monk_id);
+                      return linked ? (
+                        <div className="mt-1">
+                          <span className="text-[10px] bg-amber-500/10 text-amber-850 dark:text-amber-400 font-bold px-2 py-0.5 rounded border border-amber-500/20">
+                            ภิกษุ: {linked.name}
+                          </span>
+                        </div>
+                      ) : null;
+                    })()}
+                    <p className="text-[10px] text-amber-700/60 dark:text-amber-400/60 mt-1">
                       ID: {user.id}
                     </p>
                   </div>
@@ -321,6 +332,25 @@ export default function UsersManagement() {
                 />
               </div>
 
+              {/* Link Monk Profile */}
+              <div className="space-y-1">
+                <label className="text-xs font-bold text-amber-900/80 dark:text-amber-300">
+                  เชื่อมโยงกับโปรไฟล์พระภิกษุสามเณร (Link Monk Profile)
+                </label>
+                <select
+                  value={currentUser.monk_id || ''}
+                  onChange={(e) => updateFormFields('monk_id', e.target.value || undefined)}
+                  className="w-full px-3 py-2 text-xs rounded-lg border border-amber-200 dark:border-amber-950 bg-white dark:bg-[#110e08] text-amber-950 dark:text-amber-100 outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 cursor-pointer"
+                >
+                  <option value="">-- ไม่เชื่อมโยง (ไม่ใช่พระสงฆ์/บุคคลทั่วไป) --</option>
+                  {monks.map((m) => (
+                    <option key={m.id} value={m.id}>
+                      {m.name} {m.chaya !== '-' ? `(${m.chaya})` : ''} - {m.rank}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
               {/* Role Select */}
               <div className="space-y-1">
                 <label className="text-xs font-bold text-amber-900/80 dark:text-amber-300">
@@ -332,8 +362,10 @@ export default function UsersManagement() {
                   className="w-full px-3 py-2 text-xs rounded-lg border border-amber-200 dark:border-amber-950 bg-white dark:bg-[#110e08] text-amber-950 dark:text-amber-100 outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 cursor-pointer"
                 >
                   <option value="admin">ผู้ดูแลระบบ (Admin) - จัดการข้อมูลได้ทุกส่วน</option>
+                  <option value="abbot">เจ้าอาวาส / ผู้บริหาร (Abbot) - สิทธิ์ผู้บริหารจัดการได้ทุกส่วน</option>
                   <option value="editor">ผู้แก้ไขข้อมูล (Editor) - แก้ไขบันทึก แต่เปลี่ยนการตั้งค่าบางส่วนไม่ได้</option>
                   <option value="staff">เจ้าหน้าที่วัด (Staff) - บันทึกข้อมูลและดูรายการได้อย่างเดียว</option>
+                  <option value="member">สมาชิกทั่วไป (Member) - เข้าดูข้อมูลได้อย่างเดียว (พระ-เณร)</option>
                 </select>
               </div>
 

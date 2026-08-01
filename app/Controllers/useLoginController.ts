@@ -47,6 +47,7 @@ export function useLoginController() {
 
       if (data.session) {
         localStorage.setItem('temple_session', JSON.stringify(data.session));
+        localStorage.setItem('temple_last_active', String(Date.now()));
         router.push('/dashboard');
       } else {
         setError('เกิดข้อผิดพลาดในการเชื่อมต่อระบบ');

@@ -16,40 +16,48 @@ interface UsePermissionReturn {
   roleBadgeClass: string;
   permissions: PermissionSet;
   isAdmin: boolean;
+  isAbbot: boolean;
   isEditor: boolean;
   isStaff: boolean;
+  isMember: boolean;
   loaded: boolean;
 }
 
 export function usePermission(): UsePermissionReturn {
-  const [user, setUser] = useState<SessionUser | null>(null);
-  const [loaded, setLoaded] = useState(false);
+  const [user, setUser] = useState<SessionUser | null>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const raw = localStorage.getItem('temple_session');
+        if (raw) {
+          const session = JSON.parse(raw);
+          return session?.user ?? null;
+        }
+      } catch {
+        // ignore
+      }
+    }
+    return null;
+  });
+  const [loaded, setLoaded] = useState(() => typeof window !== 'undefined');
 
   useEffect(() => {
-    try {
-      const raw = localStorage.getItem('temple_session');
-      if (raw) {
-        const session = JSON.parse(raw);
-        setUser(session?.user ?? null);
-      }
-    } catch {
-      // ignore
-    }
     setLoaded(true);
   }, []);
 
-  const role = (user?.role ?? 'staff') as Role;
+  const role = (user?.role ?? 'member') as Role;
   const permissions = getPermissions(role);
 
   return {
     user,
     role,
-    roleLabel: ROLE_LABELS[role] ?? 'เจ้าหน้าที่วัด',
-    roleBadgeClass: ROLE_COLORS[role] ?? ROLE_COLORS.staff,
+    roleLabel: ROLE_LABELS[role] ?? 'สมาชิกทั่วไป (พระ-เณร)',
+    roleBadgeClass: ROLE_COLORS[role] ?? ROLE_COLORS.member,
     permissions,
     isAdmin: role === 'admin',
+    isAbbot: role === 'abbot',
     isEditor: role === 'editor',
     isStaff: role === 'staff',
+    isMember: role === 'member',
     loaded,
   };
 }

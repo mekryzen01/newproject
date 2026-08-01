@@ -27,6 +27,27 @@ export function useMenuManagerController() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [currentItem, setCurrentItem] = useState<Partial<MenuItem> | null>(null);
 
+  const sortMenusList = (items: MenuItem[]) => {
+    // Separate parents and submenus
+    const parents = items.filter(m => !m.parentId).sort((a, b) => a.order - b.order);
+    const submenus = items.filter(m => m.parentId);
+    
+    const result: MenuItem[] = [];
+    parents.forEach(parent => {
+      result.push(parent);
+      const parentSubs = submenus
+        .filter(s => s.parentId === parent.id)
+        .sort((a, b) => a.order - b.order);
+      result.push(...parentSubs);
+    });
+
+    // Add any orphaned submenus at the end
+    const orphaned = submenus.filter(s => !parents.some(p => p.id === s.parentId));
+    result.push(...orphaned);
+
+    return result;
+  };
+
   // Load Menus
   const loadMenus = async () => {
     setLoading(true);
@@ -64,26 +85,6 @@ export function useMenuManagerController() {
     setMenus(updated);
   };
 
-  const sortMenusList = (items: MenuItem[]) => {
-    // Separate parents and submenus
-    const parents = items.filter(m => !m.parentId).sort((a, b) => a.order - b.order);
-    const submenus = items.filter(m => m.parentId);
-    
-    const result: MenuItem[] = [];
-    parents.forEach(parent => {
-      result.push(parent);
-      const parentSubs = submenus
-        .filter(s => s.parentId === parent.id)
-        .sort((a, b) => a.order - b.order);
-      result.push(...parentSubs);
-    });
-
-    // Add any orphaned submenus at the end
-    const orphaned = submenus.filter(s => !parents.some(p => p.id === s.parentId));
-    result.push(...orphaned);
-
-    return result;
-  };
 
   // Reorder sorting up/down (within the same parent level)
   const handleMove = (index: number, direction: 'up' | 'down') => {
@@ -123,7 +124,8 @@ export function useMenuManagerController() {
       iconName: 'Settings',
       isActive: true,
       order: menus.length + 1,
-      parentId: null
+      parentId: null,
+      roleAccess: 'admin,editor,staff,member'
     });
     setIsModalOpen(true);
   };

@@ -16,7 +16,8 @@ import {
   Lock,
   Bookmark,
   LayoutGrid,
-  List
+  List,
+  QrCode
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useAshesController } from '@/app/Controllers/useAshesController';
@@ -26,7 +27,7 @@ import { formatThaiDate } from '@/lib/utils';
 import { ThaiDatePicker } from '@/components/ui/thai-date-picker';
 
 export default function AshesManagement() {
-  const { permissions } = usePermission();
+  const { permissions, role } = usePermission();
   const [viewMode, setViewMode] = React.useState<'grid' | 'table'>(() => {
     if (typeof window !== 'undefined') {
       return (localStorage.getItem('ashes_view_mode') as 'grid' | 'table') || 'grid';
@@ -37,6 +38,53 @@ export default function AshesManagement() {
   React.useEffect(() => {
     localStorage.setItem('ashes_view_mode', viewMode);
   }, [viewMode]);
+
+  const handlePrintQR = (record: any) => {
+    const publicUrl = `${window.location.origin}/public/ashes/${record.id}`;
+    const printWindow = window.open('', '_blank', 'width=350,height=350');
+    if (!printWindow) return;
+    printWindow.document.write(`
+      <html>
+        <head>
+          <title>พิมพ์ป้าย QR Code: ${record.deceased_name}</title>
+          <style>
+            body {
+              display: flex;
+              flex-direction: column;
+              align-items: center;
+              justify-content: center;
+              margin: 0;
+              font-family: sans-serif;
+              text-align: center;
+              padding: 20px;
+            }
+            img {
+              width: 180px;
+              height: 180px;
+              margin-bottom: 15px;
+            }
+            h1 {
+              font-size: 16px;
+              margin: 5px 0;
+              font-weight: bold;
+            }
+            p {
+              font-size: 11px;
+              color: #555;
+              margin: 2px 0;
+            }
+          </style>
+        </head>
+        <body>
+          <img src="https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(publicUrl)}" onload="window.print(); window.close();" />
+          <h1>${record.deceased_name}</h1>
+          <p>ตู้ที่/ล็อกที่: ${record.niche_code}</p>
+          <p>สแกนเพื่ออ่านประวัติและรำลึกความดี</p>
+        </body>
+      </html>
+    `);
+    printWindow.document.close();
+  };
   const {
     loading,
     search,
@@ -69,7 +117,7 @@ export default function AshesManagement() {
             จัดการตู้/ล็อกที่บรรจุอัฐิ ข้อมูลผู้วายชนม์ รายนามญาติผู้ติดต่อประสานงาน และรายละเอียดทำบุญอุทิศกุศลประจำปี
           </p>
         </div>
-        {permissions.canCreate && (
+        {(permissions.canCreate || role === 'member') && (
           <Button
             onClick={handleOpenAddModal}
             className="bg-amber-500 hover:bg-amber-600 text-white font-bold text-xs py-5 px-5 rounded-xl flex items-center gap-1.5 border-none shadow-md shadow-amber-500/10 cursor-pointer"
@@ -183,9 +231,20 @@ export default function AshesManagement() {
                     อัฐิ
                   </div>
                   <div>
-                    <h3 className="font-extrabold text-base text-amber-950 dark:text-amber-100 font-heading">
-                      {record.deceased_name}
-                    </h3>
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <h3 className="font-extrabold text-base text-amber-950 dark:text-amber-100 font-heading">
+                        {record.deceased_name}
+                      </h3>
+                      {record.status === 'withdrawn' ? (
+                        <span className="text-[8px] font-bold px-1.5 py-0.5 rounded bg-gray-500/10 text-gray-500 border border-gray-500/20 shrink-0">
+                          ถอนแล้ว
+                        </span>
+                      ) : (
+                        <span className="text-[8px] font-bold px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-600 border border-emerald-500/20 shrink-0">
+                          ฝากอยู่
+                        </span>
+                      )}
+                    </div>
                     <p className="text-[10px] text-amber-700/50 dark:text-amber-500/40 mt-0.5">
                       เสียชีวิตเมื่อ: {formatThaiDate(record.death_date)}
                     </p>
@@ -214,6 +273,14 @@ export default function AshesManagement() {
                     <Bookmark className="size-4 text-amber-600 dark:text-amber-500 shrink-0" />
                     <span>ผู้รับฝาก: <strong className="font-semibold text-amber-950 dark:text-amber-200">{record.deposited_by || '-'}</strong></span>
                   </div>
+                  {record.status === 'withdrawn' && (
+                    <div className="bg-red-550/10 dark:bg-red-950/20 p-2.5 rounded-lg border border-red-500/20 text-red-700 dark:text-red-400 text-[10px] leading-relaxed space-y-0.5 mt-2">
+                      <span className="font-bold block text-red-800 dark:text-red-300">🍂 ถอนอัฐิคืนไปแล้ว</span>
+                      <div className="block">วันที่ถอน: {record.withdraw_date ? formatThaiDate(record.withdraw_date) : '-'}</div>
+                      <div className="block">ญาติผู้รับถอน: {record.withdraw_by || '-'}</div>
+                      {record.withdraw_reason && <div className="block italic">เหตุผล: {record.withdraw_reason}</div>}
+                    </div>
+                  )}
                   {record.notes && (
                     <div className="flex items-start gap-2.5 text-amber-800/70 dark:text-amber-455 mt-2 bg-amber-50/10 p-2.5 rounded-lg border border-amber-100/50 dark:border-amber-950">
                       <FileText className="size-3.5 text-amber-600 shrink-0 mt-0.5" />
@@ -224,16 +291,25 @@ export default function AshesManagement() {
               </div>
 
               {/* Card Footer Actions */}
-              {(permissions.canEdit || permissions.canDelete) && (
+              {(permissions.canEdit || permissions.canDelete || role === 'member') && (
                 <div className="flex gap-2 mt-6 pt-4 border-t border-amber-100/50 dark:border-amber-950/40">
-                  {permissions.canEdit && (
+                  <Button
+                    variant="outline"
+                    onClick={() => handlePrintQR(record)}
+                    className="flex-1 flex items-center justify-center gap-1.5 py-2 px-3 border-amber-200 hover:bg-amber-500/10 text-amber-800 dark:text-amber-300 text-xs font-bold cursor-pointer"
+                    title="พิมพ์ฉลาก QR Code ประวัติอัฐิของผู้วายชนม์"
+                  >
+                    <QrCode className="size-3.5 text-amber-600 dark:text-amber-500" />
+                    พิมพ์ QR
+                  </Button>
+                  {(permissions.canEdit || role === 'member') && (
                     <Button
                       variant="outline"
                       onClick={() => handleOpenEditModal(record)}
                       className="flex-1 flex items-center justify-center gap-1.5 py-2 px-3 border-amber-200 hover:bg-amber-500/10 text-amber-800 dark:text-amber-300 text-xs font-bold cursor-pointer"
                     >
                       <Edit className="size-3.5" />
-                      แก้ไขข้อมูล
+                      แก้ไข
                     </Button>
                   )}
                   {permissions.canDelete && (
@@ -243,7 +319,7 @@ export default function AshesManagement() {
                       className="flex-1 flex items-center justify-center gap-1.5 py-2 px-3 text-xs font-bold cursor-pointer"
                     >
                       <Trash className="size-3.5" />
-                      ลบข้อมูล
+                      ลบ
                     </Button>
                   )}
                 </div>
@@ -265,6 +341,7 @@ export default function AshesManagement() {
                   <th className="p-4">ญาติผู้ติดต่อ</th>
                   <th className="p-4">เบอร์โทรศัพท์ญาติ</th>
                   <th className="p-4">ผู้รับฝาก</th>
+                  <th className="p-4 text-center">สถานะ</th>
                   <th className="p-4 text-center w-36">การจัดการ</th>
                 </tr>
               </thead>
@@ -292,9 +369,28 @@ export default function AshesManagement() {
                     <td className="p-4 text-amber-800/70 dark:text-amber-400">
                       {record.deposited_by || '-'}
                     </td>
+                    <td className="p-4 text-center">
+                      {record.status === 'withdrawn' ? (
+                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-gray-500/10 text-gray-500 border border-gray-500/20 cursor-help" title={`ถอนออกโดย ${record.withdraw_by || '-'} เมื่อ ${record.withdraw_date ? formatThaiDate(record.withdraw_date) : '-'}`}>
+                          ถอนแล้ว
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/10 text-emerald-600 border border-emerald-500/20">
+                          ฝากอยู่
+                        </span>
+                      )}
+                    </td>
                     <td className="p-4">
                       <div className="flex justify-center items-center gap-1.5">
-                        {permissions.canEdit && (
+                        <button
+                          type="button"
+                          onClick={() => handlePrintQR(record)}
+                          className="p-1.5 rounded-lg border border-amber-200/50 dark:border-amber-950 hover:bg-amber-500/10 text-amber-600 dark:text-amber-400 cursor-pointer"
+                          title="พิมพ์ป้าย QR Code"
+                        >
+                          <QrCode className="size-4" />
+                        </button>
+                        {(permissions.canEdit || role === 'member') && (
                           <button
                             type="button"
                             onClick={() => handleOpenEditModal(record)}
@@ -465,6 +561,64 @@ export default function AshesManagement() {
                     className="w-full px-3 py-2 text-xs rounded-lg border border-amber-200 dark:border-amber-950 bg-white dark:bg-[#110e08] text-amber-950 dark:text-amber-100 outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 h-16 resize-none"
                   />
                 </div>
+
+                {/* Status: ฝากอยู่ / ถอนออก */}
+                <div className="col-span-2 space-y-1">
+                  <label className="text-xs font-bold text-amber-900/80 dark:text-amber-300">สถานะประดิษฐานอัฐิ *</label>
+                  <select
+                    value={currentRecord.status || 'deposited'}
+                    onChange={(e) => {
+                      const newStatus = e.target.value as any;
+                      updateFormFields('status', newStatus);
+                      if (newStatus === 'deposited') {
+                        updateFormFields('withdraw_date', '');
+                        updateFormFields('withdraw_by', '');
+                        updateFormFields('withdraw_reason', '');
+                      } else {
+                        updateFormFields('withdraw_date', new Date().toISOString().split('T')[0]);
+                      }
+                    }}
+                    className="w-full px-3 py-2 text-xs rounded-lg border border-amber-200 dark:border-amber-950 bg-white dark:bg-[#110e08] text-amber-950 dark:text-amber-100 outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 cursor-pointer"
+                  >
+                    <option value="deposited">🌸 ยังฝากประดิษฐานอยู่ที่วัด (Deposited)</option>
+                    <option value="withdrawn">🍂 ถอนอัฐิคืนไปแล้ว (Withdrawn)</option>
+                  </select>
+                </div>
+
+                {/* Conditional fields for withdrawn status */}
+                {currentRecord.status === 'withdrawn' && (
+                  <div className="col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-3 bg-amber-500/5 dark:bg-[#1a160f] p-4 rounded-xl border border-amber-200/20 dark:border-amber-950/20">
+                    <div className="space-y-1">
+                      <label className="text-xs font-bold text-amber-900/80 dark:text-amber-300">วันที่ทำการถอนออก *</label>
+                      <ThaiDatePicker
+                        required
+                        value={currentRecord.withdraw_date || ''}
+                        onChange={(val) => updateFormFields('withdraw_date', val)}
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-xs font-bold text-amber-900/80 dark:text-amber-300">ญาติผู้รับถอนกระดูกไป *</label>
+                      <input
+                        type="text"
+                        required
+                        value={currentRecord.withdraw_by || ''}
+                        onChange={(e) => updateFormFields('withdraw_by', e.target.value)}
+                        placeholder="ระบุชื่อญาติผู้เซ็นรับถอน"
+                        className="w-full px-3 py-2 text-xs rounded-lg border border-amber-200 dark:border-amber-950 bg-white dark:bg-[#110e08] text-amber-950 dark:text-amber-100 outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500"
+                      />
+                    </div>
+                    <div className="col-span-1 sm:col-span-2 space-y-1">
+                      <label className="text-xs font-bold text-amber-900/80 dark:text-amber-300">เหตุผลในการถอน (และสถานที่ปลายทาง)</label>
+                      <input
+                        type="text"
+                        value={currentRecord.withdraw_reason || ''}
+                        onChange={(e) => updateFormFields('withdraw_reason', e.target.value)}
+                        placeholder="เช่น นำกลับไปบูชาที่บ้าน หรือ ไปทำพิธีลอยอังคาร"
+                        className="w-full px-3 py-2 text-xs rounded-lg border border-amber-200 dark:border-amber-950 bg-white dark:bg-[#110e08] text-amber-950 dark:text-amber-100 outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500"
+                      />
+                    </div>
+                  </div>
+                )}
 
               </div>
 

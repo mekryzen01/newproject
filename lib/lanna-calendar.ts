@@ -119,7 +119,7 @@ export function getLannaMonth(date: Date): number {
   const lunations = daysDiff / synodicMonth;
   
   // Calculate central month starting from month 8 at 2026-06-15
-  let centralFloat = 8 + lunations;
+  const centralFloat = 8 + lunations;
   let central = Math.floor(centralFloat) % 12;
   if (central <= 0) central += 12;
   
@@ -152,5 +152,123 @@ export function checkWanKaoKong(date: Date): { isWanKaoKong: boolean; daySign: s
     lannaMonth,
     lannaMonthName,
     message: isWanKaoKong ? 'วันเก้ากอง (ห้ามเผาศพ)' : ''
+  };
+}
+
+// Get details about the Thai Lunar Day (e.g. ขึ้น 15 ค่ำ เดือน 8, isWanPhra, isWanKon)
+export function getThaiLunarDetails(date: Date): { 
+  lunarDayName: string; 
+  centralMonth: number;
+  isWanPhra: boolean;
+  isWanKon: boolean;
+  type: 'none' | 'wan_phra' | 'wan_kon';
+} {
+  const dateStr = formatDateString(date);
+  
+  // Find current boundary
+  let boundaryIndex = -1;
+  for (let i = THAI_LUNAR_BOUNDARIES.length - 1; i >= 0; i--) {
+    if (dateStr >= THAI_LUNAR_BOUNDARIES[i].start) {
+      boundaryIndex = i;
+      break;
+    }
+  }
+  
+  let diff = 0;
+  let centralMonth = 1;
+  let boundaryDate: Date;
+  
+  if (boundaryIndex !== -1) {
+    boundaryDate = new Date(THAI_LUNAR_BOUNDARIES[boundaryIndex].start);
+    centralMonth = THAI_LUNAR_BOUNDARIES[boundaryIndex].centralMonth;
+    diff = getDaysBetween(boundaryDate, date);
+  } else {
+    // Fallback synodic calculations
+    const anchorDate = new Date('2026-06-15');
+    const daysDiff = getDaysBetween(anchorDate, date);
+    const synodicMonth = 29.530589;
+    const lunations = daysDiff / synodicMonth;
+    
+    const centralFloat = 8 + lunations;
+    let central = Math.floor(centralFloat) % 12;
+    if (central <= 0) central += 12;
+    centralMonth = central;
+    
+    // Approximate current boundary
+    const currentLunationStart = Math.floor(lunations);
+    boundaryDate = new Date(anchorDate.getTime() + currentLunationStart * synodicMonth * 24 * 60 * 60 * 1000);
+    diff = getDaysBetween(boundaryDate, date);
+  }
+  
+  // Clean up boundary times to avoid offset issues
+  boundaryDate.setHours(0, 0, 0, 0);
+  
+  // Calculate lunar day name
+  let lunarDayName = '';
+  if (diff < 15) {
+    lunarDayName = `ขึ้น ${diff + 1} ค่ำ`;
+  } else {
+    lunarDayName = `แรม ${diff - 14} ค่ำ`;
+  }
+  
+  // Check if target date is Wan Phra (วันพระ)
+  // Wan Phra happens on:
+  // 1. ขึ้น 8 ค่ำ (diff === 7)
+  // 2. ขึ้น 15 ค่ำ (diff === 14)
+  // 3. แรม 8 ค่ำ (diff === 22)
+  // 4. แรม 14/15 ค่ำ (last day of month before next boundary starts)
+  let isWanPhra = false;
+  if (diff === 7 || diff === 14 || diff === 22) {
+    isWanPhra = true;
+  } else {
+    // Check if the NEXT day is the start of a boundary
+    const nextDay = new Date(date);
+    nextDay.setDate(nextDay.getDate() + 1);
+    const nextDayStr = formatDateString(nextDay);
+    const isNextDayBoundary = THAI_LUNAR_BOUNDARIES.some(b => b.start === nextDayStr);
+    if (isNextDayBoundary) {
+      isWanPhra = true;
+    }
+  }
+  
+  // Check if target date is Wan Kon (วันโกน - day before Wan Phra)
+  let isWanKon = false;
+  if (!isWanPhra) {
+    const tomorrow = new Date(date);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    // Tomorrow is Wan Phra if:
+    // Tomorrow's diff relative to boundary is 7, 14, 22 or tomorrow + 1 day is a boundary
+    const tomorrowStr = formatDateString(tomorrow);
+    let tomBoundaryIndex = -1;
+    for (let i = THAI_LUNAR_BOUNDARIES.length - 1; i >= 0; i--) {
+      if (tomorrowStr >= THAI_LUNAR_BOUNDARIES[i].start) {
+        tomBoundaryIndex = i;
+        break;
+      }
+    }
+    if (tomBoundaryIndex !== -1) {
+      const tomBoundaryDate = new Date(THAI_LUNAR_BOUNDARIES[tomBoundaryIndex].start);
+      const tomDiff = getDaysBetween(tomBoundaryDate, tomorrow);
+      if (tomDiff === 7 || tomDiff === 14 || tomDiff === 22) {
+        isWanKon = true;
+      } else {
+        const dayAfterTomorrow = new Date(tomorrow);
+        dayAfterTomorrow.setDate(dayAfterTomorrow.getDate() + 1);
+        const datStr = formatDateString(dayAfterTomorrow);
+        if (THAI_LUNAR_BOUNDARIES.some(b => b.start === datStr)) {
+          isWanKon = true;
+        }
+      }
+    }
+  }
+  
+  const type = isWanPhra ? 'wan_phra' : isWanKon ? 'wan_kon' : 'none';
+  
+  return {
+    lunarDayName: `${lunarDayName} เดือน ${centralMonth}`,
+    centralMonth,
+    isWanPhra,
+    isWanKon,
+    type
   };
 }

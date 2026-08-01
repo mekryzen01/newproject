@@ -44,6 +44,15 @@ export default function CostItemsManagement() {
     onConfirm: () => void;
   } | null>(null);
 
+  const showAlert = (title: string, description: string, variant: 'success' | 'destructive' | 'warning' | 'info' = 'info') => {
+    setAlertState({
+      show: true,
+      title,
+      description,
+      variant
+    });
+  };
+
   // Load items from Supabase
   const loadItems = async () => {
     setLoading(true);
@@ -60,15 +69,6 @@ export default function CostItemsManagement() {
   useEffect(() => {
     loadItems();
   }, []);
-
-  const showAlert = (title: string, description: string, variant: 'success' | 'destructive' | 'warning' | 'info' = 'info') => {
-    setAlertState({
-      show: true,
-      title,
-      description,
-      variant
-    });
-  };
 
   const handleOpenAddModal = () => {
     setCurrentItem({

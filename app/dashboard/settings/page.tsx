@@ -17,6 +17,7 @@ import { Button } from '@/components/ui/button';
 import { useSettingsController } from '@/app/Controllers/useSettingsController';
 import { CustomDialog } from '@/components/ui/custom-dialog';
 import { usePermission } from '@/lib/usePermission';
+import { useJsApiLoader, GoogleMap, MarkerF } from '@react-google-maps/api';
 
 export default function SettingsPage() {
   const { permissions } = usePermission();
@@ -40,6 +41,51 @@ export default function SettingsPage() {
     handleReset,
     updateSettingField
   } = useSettingsController();
+
+  const { isLoaded } = useJsApiLoader({
+    id: 'google-map-script',
+    googleMapsApiKey: "AIzaSyA_DeZlR7mlQPPcxK-l_GSh1hd5JoUIV0E"
+  });
+
+  const getMapCenter = React.useCallback(() => {
+    const defaultCenter = { lat: 13.7563, lng: 100.5018 }; // Bangkok
+    if (!settings?.googleMapUrl) return defaultCenter;
+    
+    // 1. Match coordinates prefixed with @ (e.g. @13.7563,100.5018)
+    const atMatch = settings.googleMapUrl.match(/@(-?\d+\.\d+),(-?\d+\.\d+)/);
+    if (atMatch) {
+      return { lat: parseFloat(atMatch[1]), lng: parseFloat(atMatch[2]) };
+    }
+
+    // 2. Match q=lat,lng or ll=lat,lng query parameters
+    const qMatch = settings.googleMapUrl.match(/[?&](q|ll)=(-?\d+\.\d+),(-?\d+\.\d+)/);
+    if (qMatch) {
+      return { lat: parseFloat(qMatch[2]), lng: parseFloat(qMatch[3]) };
+    }
+
+    // 3. Match patterns like /13.7563,100.5018 or place/13.7563,100.5018
+    const pathMatch = settings.googleMapUrl.match(/\/(-?\d+\.\d+),(-?\d+\.\d+)/);
+    if (pathMatch) {
+      return { lat: parseFloat(pathMatch[1]), lng: parseFloat(pathMatch[2]) };
+    }
+
+    // 4. Match raw lat,lng
+    const rawMatch = settings.googleMapUrl.match(/^(-?\d+\.\d+),\s*(-?\d+\.\d+)$/);
+    if (rawMatch) {
+      return { lat: parseFloat(rawMatch[1]), lng: parseFloat(rawMatch[2]) };
+    }
+    
+    return defaultCenter;
+  }, [settings]);
+
+  const handleMapClick = React.useCallback((e: google.maps.MapMouseEvent) => {
+    if (!permissions.canEditSettings) return;
+    const lat = e.latLng?.lat();
+    const lng = e.latLng?.lng();
+    if (lat && lng) {
+      updateSettingField('googleMapUrl', `https://www.google.com/maps?q=${lat},${lng}`);
+    }
+  }, [permissions.canEditSettings, updateSettingField]);
 
   // Icon listing helper
   const icons = [
@@ -164,6 +210,75 @@ export default function SettingsPage() {
               placeholder="เช่น TEMPLE OS หรือ ว.ศ."
               className="w-full px-4 py-2.5 text-xs rounded-xl border border-amber-200 dark:border-amber-950 bg-white dark:bg-[#110e08] text-amber-950 dark:text-amber-100 outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 disabled:opacity-60 disabled:cursor-not-allowed"
             />
+          </div>
+
+          {/* Temple Address */}
+          <div className="space-y-1.5">
+            <label className="text-xs font-bold text-amber-900/80 dark:text-amber-300">ที่อยู่วัด (สำหรับแสดงบนหัวใบเสนอราคาและเอกสาร)</label>
+            <textarea
+              disabled={!permissions.canEditSettings}
+              value={settings.address || ''}
+              onChange={(e) => updateSettingField('address', e.target.value)}
+              placeholder="ระบุที่อยู่วัดเต็ม เช่น 123 ถนนวิสุทธิกษัตริย์ แขวงวัดสามพระยา เขตพระนคร กรุงเทพมหานคร 10200"
+              rows={3}
+              className="w-full px-4 py-2.5 text-xs rounded-xl border border-amber-200 dark:border-amber-950 bg-white dark:bg-[#110e08] text-amber-950 dark:text-amber-100 outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 disabled:opacity-60 disabled:cursor-not-allowed"
+            />
+          </div>
+
+          {/* Google Maps Link */}
+          <div className="space-y-1.5">
+            <label className="text-xs font-bold text-amber-900/80 dark:text-amber-300">ลิงก์ที่ตั้งวัดบน Google Maps (URL / Share Link)</label>
+            <input
+              type="text"
+              disabled={!permissions.canEditSettings}
+              value={settings.googleMapUrl || ''}
+              onChange={(e) => updateSettingField('googleMapUrl', e.target.value)}
+              placeholder="ระบุลิงก์แชร์จาก Google Maps หรือพิกัดละติจูด,ลองจิจูด..."
+              className="w-full px-4 py-2.5 text-xs rounded-xl border border-amber-200 dark:border-amber-950 bg-white dark:bg-[#110e08] text-amber-950 dark:text-amber-100 outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 disabled:opacity-60 disabled:cursor-not-allowed"
+            />
+            <p className="text-[10px] text-amber-600/50 dark:text-amber-500/40">
+              * รองรับการวางพิกัดตัวเลขตรงๆ เช่น <code>13.7563,100.5018</code> หรือลิงก์จาก Google Maps ที่มีพิกัด (เช่น <code>@13.7563,100.5018</code> หรือ <code>q=13.7563,100.5018</code>) โดยหมุดแผนที่จะอัปเดตให้อัตโนมัติ
+            </p>
+            {settings.googleMapUrl && (
+              <div className="mt-2 text-right">
+                <a 
+                  href={settings.googleMapUrl} 
+                  target="_blank" 
+                  rel="noopener noreferrer" 
+                  className="text-xs font-bold text-amber-600 hover:text-amber-700 underline"
+                >
+                  📍 ทดสอบเปิดที่ตั้งวัดบนแผนที่
+                </a>
+              </div>
+            )}
+            
+            {/* Interactive Google Map */}
+            {isLoaded ? (
+              <div className="mt-4 space-y-2">
+                <label className="text-[10px] font-bold text-amber-900/60 dark:text-amber-400/60 block">
+                  แผนที่แสดงพิกัดที่ตั้ง (คลิกตำแหน่งบนแผนที่เพื่ออัปเดตและปักหมุดพิกัดวัดโดยอัตโนมัติ)
+                </label>
+                <div className="w-full h-[260px] rounded-xl overflow-hidden border border-amber-200/50 dark:border-amber-950/40">
+                  <GoogleMap
+                    mapContainerStyle={{ width: '100%', height: '100%' }}
+                    center={getMapCenter()}
+                    zoom={15}
+                    onClick={handleMapClick}
+                    options={{
+                      mapTypeControl: false,
+                      streetViewControl: false,
+                      fullscreenControl: true
+                    }}
+                  >
+                    <MarkerF position={getMapCenter()} />
+                  </GoogleMap>
+                </div>
+              </div>
+            ) : (
+              <div className="mt-4 h-[260px] w-full rounded-xl bg-amber-50/20 dark:bg-amber-950/10 border border-dashed border-amber-200/40 flex items-center justify-center text-xs font-bold text-amber-700/50">
+                กำลังโหลดแผนที่จาก Google Maps...
+              </div>
+            )}
           </div>
 
           {/* Logo Image URL */}
@@ -370,6 +485,86 @@ export default function SettingsPage() {
                   </button>
                 );
               })}
+            </div>
+          </div>
+
+          {/* TempleOS Adaptive Profile & Modular System Configuration */}
+          <div className="space-y-4 border-t border-amber-100 dark:border-amber-950/40 pt-6">
+            <div className="flex justify-between items-center">
+              <div>
+                <h4 className="font-extrabold text-sm text-amber-950 dark:text-amber-200 flex items-center gap-2 font-heading">
+                  <span className="p-1 rounded-lg bg-amber-500/10 text-amber-600">🏛️</span>
+                  สถาปัตยกรรม TempleOS: การกำหนดบริบทวัด & เปิด/ปิด โมดูล (Adaptive Modular System)
+                </h4>
+                <p className="text-[11px] text-amber-700/60 dark:text-amber-400/60 mt-0.5">
+                  ตามแนวคิด "วัดแต่ละแห่งไม่เหมือนกัน แต่ไม่จำเป็นต้องสร้างระบบใหม่สำหรับทุกวัด" (One User One Temple Core)
+                </p>
+              </div>
+              <span className="text-[10px] font-bold px-2.5 py-1 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
+                Single Core Platform
+              </span>
+            </div>
+
+            {/* Profile Presets */}
+            <div className="p-4 rounded-xl bg-gradient-to-r from-amber-500/5 to-emerald-500/5 border border-amber-200/40 dark:border-amber-950/30 space-y-3">
+              <label className="text-xs font-bold text-amber-900 dark:text-amber-200 block">
+                เลือกบริบทประจำวัด (Temple Context Profile):
+              </label>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                <div className="p-3 rounded-xl border border-amber-200 dark:border-amber-950 bg-white dark:bg-[#110e08] space-y-1">
+                  <div className="font-bold text-xs text-amber-900 dark:text-amber-200 flex items-center gap-1.5">
+                    <span>🌿 วัดชนบท / วัดขนาดเล็ก</span>
+                  </div>
+                  <p className="text-[10px] text-amber-700/60 dark:text-amber-400/60 leading-normal">
+                    เน้นระบบพระภิกษุ, งานนิมนต์ และการเงินวัดพื้นฐาน (ปิดระบบศาลา/ใบเสนอราคา)
+                  </p>
+                </div>
+                <div className="p-3 rounded-xl border border-amber-500 bg-amber-500/5 text-amber-950 dark:text-amber-200 space-y-1 ring-2 ring-amber-500/20">
+                  <div className="font-bold text-xs text-amber-900 dark:text-amber-200 flex items-center gap-1.5">
+                    <span>🏛️ วัดทั่วไป / วัดขนาดกลาง (วัดดอนเศรษฐี)</span>
+                  </div>
+                  <p className="text-[10px] text-amber-700/60 dark:text-amber-400/60 leading-normal">
+                    เปิดระบบศาลา, งานนิมนต์, ทำเนียบพระ, การเงินวัด และครุภัณฑ์
+                  </p>
+                </div>
+                <div className="p-3 rounded-xl border border-amber-200 dark:border-amber-950 bg-white dark:bg-[#110e08] space-y-1">
+                  <div className="font-bold text-xs text-amber-900 dark:text-amber-200 flex items-center gap-1.5">
+                    <span>🌟 วัดขนาดใหญ่ / Enterprise</span>
+                  </div>
+                  <p className="text-[10px] text-amber-700/60 dark:text-amber-400/60 leading-normal">
+                    เปิดครบทุกโมดูล + ใบเสนอราคา + ทะเบียนฝากอัฐิ + AI Intelligence Layer
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Modular Toggle Matrix */}
+            <div className="space-y-2">
+              <label className="text-xs font-bold text-amber-900/80 dark:text-amber-300 block">
+                สถานะการเปิดใช้งานโมดูลหลัก (Active Modules Matrix):
+              </label>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                {[
+                  { name: '🧘 พระภิกษุ & สามเณร', status: 'เปิดใช้งาน', desc: 'ทำเนียบพระ, พรรษา, สมณศักดิ์' },
+                  { name: '📅 งานนิมนต์ & ปฏิบัติ', status: 'เปิดใช้งาน', desc: 'ตารางนิมนต์, เวรภัตตาหาร' },
+                  { name: '🏛️ ศาลา & งานศพ', status: 'เปิดใช้งาน', desc: 'จองศาลา, วันเก้ากอง, เช็กซ้ำ' },
+                  { name: '📑 ใบเสนอราคา & คลัง', status: 'เปิดใช้งาน', desc: 'ออกใบเสนอราคา, คิดแพ็กเกจ' },
+                  { name: '🏺 ทะเบียนฝากอัฐิ', status: 'เปิดใช้งาน', desc: 'บันทึกฝากกระดูก, ช่องเก็บ' },
+                  { name: '💰 การเงินวัด & งบประมาณ', status: 'เปิดใช้งาน', desc: 'บัญชีรับ-จ่าย, ปัจจัยส่วนตัว' },
+                  { name: '📦 พัสดุ & ครุภัณฑ์', status: 'เปิดใช้งาน', desc: 'ทะเบียนยืม-คืน, สภาพครุภัณฑ์' },
+                  { name: '🤖 AI Intelligence Layer', status: 'เปิดใช้งาน', desc: 'AI Assistant, Analytics, OCR' }
+                ].map((m, idx) => (
+                  <div key={idx} className="p-2.5 rounded-xl border border-amber-200/60 dark:border-amber-950/40 bg-amber-50/30 dark:bg-amber-950/10 space-y-1">
+                    <div className="flex justify-between items-center">
+                      <span className="text-[11px] font-bold text-amber-950 dark:text-amber-200">{m.name}</span>
+                      <span className="text-[9px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-1.5 py-0.5 rounded">
+                        {m.status}
+                      </span>
+                    </div>
+                    <p className="text-[9px] text-amber-700/60 dark:text-amber-400/60 truncate">{m.desc}</p>
+                  </div>
+                ))}
+              </div>
             </div>
           </div>
 

@@ -1,6 +1,66 @@
 import { NextResponse } from 'next/server';
 import { google } from 'googleapis';
 
+function parseServiceAccountJson(rawJson: string | undefined): any {
+  if (!rawJson) throw new Error('GOOGLE_SERVICE_ACCOUNT_JSON is empty');
+  
+  let jsonStr = rawJson.trim();
+  
+  // 1. Strip outer single/double quotes if they were kept by the environment loader
+  if (jsonStr.startsWith("'") && jsonStr.endsWith("'")) {
+    jsonStr = jsonStr.slice(1, -1).trim();
+  }
+  if (jsonStr.startsWith('"') && jsonStr.endsWith('"')) {
+    jsonStr = jsonStr.slice(1, -1).trim();
+  }
+  
+  let parseErrors: string[] = [];
+
+  // Strategy A: Standard JSON Parse (and handle double-escaped strings)
+  try {
+    let parsed = JSON.parse(jsonStr);
+    if (typeof parsed === 'string') {
+      parsed = JSON.parse(parsed);
+    }
+    return parsed;
+  } catch (err: any) {
+    parseErrors.push(`Standard: ${err.message}`);
+  }
+
+  // Strategy B: Normalize raw newlines to literal \n
+  try {
+    const cleaned = jsonStr.replace(/\r?\n/g, '\\n');
+    let parsed = JSON.parse(cleaned);
+    if (typeof parsed === 'string') {
+      parsed = JSON.parse(parsed);
+    }
+    return parsed;
+  } catch (err2: any) {
+    parseErrors.push(`Newline Fix: ${err2.message}`);
+  }
+
+  // Strategy C: Replace single quotes with double quotes (in case it is an object literal but not strict JSON)
+  try {
+    // Basic replacement for 'key': 'value' into "key": "value"
+    const cleanedQuotes = jsonStr
+      .replace(/'([^']+)':/g, '"$1":')
+      .replace(/: \s*'([^']*)'/g, ': "$1"');
+    let parsed = JSON.parse(cleanedQuotes);
+    if (typeof parsed === 'string') {
+      parsed = JSON.parse(parsed);
+    }
+    return parsed;
+  } catch (err3: any) {
+    parseErrors.push(`Single Quote Fix: ${err3.message}`);
+  }
+
+  // If all strategies fail, output a highly descriptive error with structure info for debugging
+  const length = jsonStr.length;
+  const startChars = jsonStr.slice(0, 70);
+  const endChars = jsonStr.slice(-40);
+  throw new Error(`JSON parse failed. Strategies failed: [${parseErrors.join(' | ')}]. Total Length: ${length} chars. Start: ${startChars}... End: ...${endChars}`);
+}
+
 export async function GET(req: Request) {
   try {
     const { searchParams } = new URL(req.url);
@@ -31,7 +91,7 @@ export async function GET(req: Request) {
       });
       auth = oauth2Client;
     } else if (hasDriveCreds) {
-      const credentials = JSON.parse(process.env.GOOGLE_SERVICE_ACCOUNT_JSON!);
+      const credentials = parseServiceAccountJson(process.env.GOOGLE_SERVICE_ACCOUNT_JSON);
       auth = new google.auth.GoogleAuth({
         credentials,
         scopes: ['https://www.googleapis.com/auth/drive.readonly', 'https://www.googleapis.com/auth/drive.file'],

@@ -151,7 +151,7 @@ export function ThaiDatePicker({
           placeholder={placeholder}
           onClick={() => setIsOpen(!isOpen)}
           className={cn(
-            "w-full pl-9 pr-8 py-2 text-xs rounded-lg border border-amber-200 dark:border-amber-950 bg-white dark:bg-[#110e08] text-amber-950 dark:text-amber-100 outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 cursor-pointer transition-all",
+            "w-full pl-9 pr-8 py-2.5 text-xs rounded-xl border border-amber-200/80 dark:border-amber-950 bg-white dark:bg-[#110e08] text-amber-950 dark:text-amber-100 outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 cursor-pointer transition-all shadow-2xs font-medium",
             className
           )}
         />

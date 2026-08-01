@@ -20,13 +20,16 @@ import {
   Edit,
   Trash,
   X,
-  ChevronRight
+  ChevronRight,
+  History
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useMenuManagerController } from '@/app/Controllers/useMenuManagerController';
 import { CustomDialog } from '@/components/ui/custom-dialog';
+import { usePermission } from '@/lib/usePermission';
 
 export default function MenuManager() {
+  const { permissions, loaded } = usePermission();
   const {
     menus,
     loading,
@@ -58,9 +61,18 @@ export default function MenuManager() {
       case 'Package': return Package;
       case 'Archive': return Archive;
       case 'Settings': return Settings;
+      case 'History': return History;
       default: return Settings;
     }
   };
+
+  if (!loaded) {
+    return (
+      <div className="min-h-[40vh] flex items-center justify-center">
+        <Loader2 className="size-8 text-amber-500 animate-spin" />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -76,33 +88,39 @@ export default function MenuManager() {
           </p>
         </div>
         <div className="flex flex-wrap gap-2.5">
-          <Button
-            onClick={handleReset}
-            variant="outline"
-            className="border-amber-200 hover:bg-amber-500/10 text-amber-800 dark:text-amber-450 text-xs font-bold py-5 px-4 rounded-xl flex items-center gap-1.5 cursor-pointer"
-          >
-            <RotateCcw className="size-4" />
-            รีเซ็ตค่าเริ่มต้น
-          </Button>
-          <Button
-            onClick={handleOpenAddModal}
-            className="bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs py-5 px-5 rounded-xl flex items-center gap-1.5 border-none shadow-md shadow-amber-600/10 cursor-pointer"
-          >
-            <Plus className="size-4" />
-            สร้างเมนูใหม่
-          </Button>
-          <Button
-            onClick={handleSaveAllGrid}
-            disabled={isSaving}
-            className="bg-amber-500 hover:bg-amber-600 text-white font-bold text-xs py-5 px-5 rounded-xl flex items-center gap-1.5 border-none shadow-md shadow-amber-500/10 cursor-pointer"
-          >
-            {isSaving ? (
-              <Loader2 className="size-4 animate-spin" />
-            ) : (
-              <Save className="size-4" />
-            )}
-            บันทึกการจัดเรียงเมนู
-          </Button>
+          {permissions.canEdit && (
+            <Button
+              onClick={handleReset}
+              variant="outline"
+              className="border-amber-200 hover:bg-amber-500/10 text-amber-800 dark:text-amber-450 text-xs font-bold py-5 px-4 rounded-xl flex items-center gap-1.5 cursor-pointer"
+            >
+              <RotateCcw className="size-4" />
+              รีเซ็ตค่าเริ่มต้น
+            </Button>
+          )}
+          {permissions.canCreate && (
+            <Button
+              onClick={handleOpenAddModal}
+              className="bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs py-5 px-5 rounded-xl flex items-center gap-1.5 border-none shadow-md shadow-amber-600/10 cursor-pointer"
+            >
+              <Plus className="size-4" />
+              สร้างเมนูใหม่
+            </Button>
+          )}
+          {permissions.canEdit && (
+            <Button
+              onClick={handleSaveAllGrid}
+              disabled={isSaving}
+              className="bg-amber-500 hover:bg-amber-600 text-white font-bold text-xs py-5 px-5 rounded-xl flex items-center gap-1.5 border-none shadow-md shadow-amber-500/10 cursor-pointer"
+            >
+              {isSaving ? (
+                <Loader2 className="size-4 animate-spin" />
+              ) : (
+                <Save className="size-4" />
+              )}
+              บันทึกการจัดเรียงเมนู
+            </Button>
+          )}
         </div>
       </div>
 
@@ -149,6 +167,7 @@ export default function MenuManager() {
                 <th className="py-3.5 px-3">ไอคอน</th>
                 <th className="py-3.5 px-3">ชื่อปุ่มเมนู</th>
                 <th className="py-3.5 px-3">ลิงก์ภายในระบบ</th>
+                <th className="py-3.5 px-3">สิทธิ์การเข้าถึง</th>
                 <th className="py-3.5 px-3 text-center">การแสดงผล</th>
                 <th className="py-3.5 px-3 text-right">ดำเนินการ</th>
               </tr>
@@ -173,16 +192,16 @@ export default function MenuManager() {
                     <td className="py-3.5 px-3 whitespace-nowrap text-center">
                       <div className="flex justify-center gap-1">
                         <button
-                          disabled={siblingIndex === 0}
+                          disabled={siblingIndex === 0 || !permissions.canEdit}
                           onClick={() => handleMove(index, 'up')}
-                          className="p-1 rounded hover:bg-amber-500/10 text-amber-800 dark:text-amber-400 disabled:opacity-30 disabled:hover:bg-transparent cursor-pointer"
+                          className="p-1 rounded hover:bg-amber-500/10 text-amber-800 dark:text-amber-400 disabled:opacity-30 disabled:hover:bg-transparent disabled:cursor-not-allowed cursor-pointer"
                         >
                           <ArrowUp className="size-3.5" />
                         </button>
                         <button
-                          disabled={siblingIndex === siblings.length - 1}
+                          disabled={siblingIndex === siblings.length - 1 || !permissions.canEdit}
                           onClick={() => handleMove(index, 'down')}
-                          className="p-1 rounded hover:bg-amber-500/10 text-amber-800 dark:text-amber-400 disabled:opacity-30 disabled:hover:bg-transparent cursor-pointer"
+                          className="p-1 rounded hover:bg-amber-500/10 text-amber-800 dark:text-amber-400 disabled:opacity-30 disabled:hover:bg-transparent disabled:cursor-not-allowed cursor-pointer"
                         >
                           <ArrowDown className="size-3.5" />
                         </button>
@@ -223,11 +242,33 @@ export default function MenuManager() {
                       {item.href === '#' ? '(ไม่มี - ขยายเมนูย่อย)' : item.href}
                     </td>
 
+                    {/* Role access list */}
+                    <td className="py-3.5 px-3">
+                      <div className="flex flex-wrap gap-1">
+                        {(!item.roleAccess || item.roleAccess.includes('admin')) && (
+                          <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-rose-500/10 text-rose-700 dark:text-rose-450 border border-rose-500/20">Admin</span>
+                        )}
+                        {(!item.roleAccess || item.roleAccess.includes('abbot')) && (
+                          <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-amber-600/10 text-amber-800 dark:text-amber-300 border border-amber-600/20">Abbot</span>
+                        )}
+                        {(!item.roleAccess || item.roleAccess.includes('editor')) && (
+                          <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-blue-500/10 text-blue-700 dark:text-blue-450 border border-blue-500/20">Editor</span>
+                        )}
+                        {(!item.roleAccess || item.roleAccess.includes('staff')) && (
+                          <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-green-500/10 text-green-700 dark:text-green-450 border border-green-500/20">Staff</span>
+                        )}
+                        {(!item.roleAccess || item.roleAccess.includes('member')) && (
+                          <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-700 dark:text-amber-450 border border-amber-500/20">Member</span>
+                        )}
+                      </div>
+                    </td>
+
                     {/* Active toggle status */}
                     <td className="py-3.5 px-3 whitespace-nowrap text-center">
                       <button
+                        disabled={!permissions.canEdit}
                         onClick={() => handleToggleActive(item.id)}
-                        className={`px-2 py-0.5 rounded-[4px] text-[10px] font-bold flex items-center gap-1 mx-auto cursor-pointer ${
+                        className={`px-2 py-0.5 rounded-[4px] text-[10px] font-bold flex items-center gap-1 mx-auto cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed ${
                           item.isActive
                             ? 'bg-emerald-500/10 text-emerald-650'
                             : 'bg-red-500/10 text-red-650'
@@ -251,24 +292,28 @@ export default function MenuManager() {
                     {/* Operations */}
                     <td className="py-3.5 px-3 text-right whitespace-nowrap">
                       <div className="flex gap-2 justify-end">
-                        <Button
-                          size="xs"
-                          variant="outline"
-                          onClick={() => handleOpenEditModal(item)}
-                          className="py-1 px-2.5 border-amber-200 hover:bg-amber-500/10 text-amber-800 dark:text-amber-300 text-[10px] font-bold cursor-pointer"
-                        >
-                          <Edit className="size-3" />
-                          แก้ไข
-                        </Button>
-                        <Button
-                          size="xs"
-                          variant="destructive"
-                          onClick={() => handleDeleteItem(item.id)}
-                          className="py-1 px-2.5 text-[10px] font-bold cursor-pointer"
-                        >
-                          <Trash className="size-3" />
-                          ลบ
-                        </Button>
+                        {permissions.canEdit && (
+                          <Button
+                            size="xs"
+                            variant="outline"
+                            onClick={() => handleOpenEditModal(item)}
+                            className="py-1 px-2.5 border-amber-200 hover:bg-amber-500/10 text-amber-800 dark:text-amber-300 text-[10px] font-bold cursor-pointer"
+                          >
+                            <Edit className="size-3" />
+                            แก้ไข
+                          </Button>
+                        )}
+                        {permissions.canDelete && (
+                          <Button
+                            size="xs"
+                            variant="destructive"
+                            onClick={() => handleDeleteItem(item.id)}
+                            className="py-1 px-2.5 text-[10px] font-bold cursor-pointer"
+                          >
+                            <Trash className="size-3" />
+                            ลบ
+                          </Button>
+                        )}
                       </div>
                     </td>
                   </tr>
@@ -363,6 +408,45 @@ export default function MenuManager() {
                  <p className="text-[9px] text-amber-700/50 dark:text-amber-500/40">
                   * หมายเหตุ: หากทำเป็นเมนูหลักแบบหัวข้อขยาย (Collapsible) เพื่อครอบเมนูย่อย ให้เลือกติ๊ก &quot;หัวข้อหลักขยายได้&quot;
                 </p>
+              </div>
+
+              {/* Access Permissions Checkbox grid */}
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold text-amber-900/80 dark:text-amber-300">
+                  สิทธิ์การเข้าถึงเมนู (Allowed Access Roles)
+                </label>
+                <div className="grid grid-cols-2 gap-2 bg-amber-50/10 dark:bg-amber-950/5 p-3 rounded-lg border border-amber-200/40 dark:border-amber-950/30">
+                  {[
+                    { key: 'admin', label: 'ผู้ดูแลระบบ (Admin)' },
+                    { key: 'abbot', label: 'เจ้าอาวาส / ผู้บริหาร (Abbot)' },
+                    { key: 'editor', label: 'ผู้แก้ไขข้อมูล (Editor)' },
+                    { key: 'staff', label: 'เจ้าหน้าที่วัด (Staff)' },
+                    { key: 'member', label: 'สมาชิกทั่วไป (Member)' }
+                  ].map(({ key, label }) => {
+                    const allowedRoles = currentItem.roleAccess ? currentItem.roleAccess.split(',') : ['admin', 'abbot', 'editor', 'staff', 'member'];
+                    const isChecked = allowedRoles.includes(key);
+                    return (
+                      <label key={key} className="flex items-center gap-2 text-xs text-amber-900 dark:text-amber-200 font-medium cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={isChecked}
+                          onChange={() => {
+                            let newRoles: string[];
+                            if (isChecked) {
+                              newRoles = allowedRoles.filter(r => r !== key);
+                            } else {
+                              newRoles = [...allowedRoles, key];
+                            }
+                            if (newRoles.length === 0) newRoles = ['admin']; // Prevent empty roles
+                            updateFormFields('roleAccess', newRoles.join(','));
+                          }}
+                          className="accent-amber-500 size-4 rounded cursor-pointer"
+                        />
+                        {label}
+                      </label>
+                    );
+                  })}
+                </div>
               </div>
 
               {/* Icon Name selection */}

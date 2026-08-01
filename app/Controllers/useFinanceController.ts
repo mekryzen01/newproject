@@ -1,13 +1,16 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { db, FinancialTransaction } from '@/lib/db';
+import { db, FinancialTransaction, TempleSettings, Monk } from '@/lib/db';
+import { offlineSyncManager } from '@/lib/offlineSync';
 
 export function useFinanceController() {
   const [transactions, setTransactions] = useState<FinancialTransaction[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [typeFilter, setTypeFilter] = useState<'all' | 'income' | 'expense'>('all');
+  const [settings, setSettings] = useState<TempleSettings | null>(null);
+  const [abbotMonk, setAbbotMonk] = useState<Monk | null>(null);
 
   // Form Modal State
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -35,8 +38,18 @@ export function useFinanceController() {
   const loadTransactions = async () => {
     setLoading(true);
     try {
-      const list = await db.finance.list();
-      setTransactions(list);
+      const [list, config, monksList] = await Promise.all([
+        db.finance.list(),
+        db.settings.get(),
+        db.monks.list()
+      ]);
+      // Filter to only include temple general transactions (no monk_id)
+      const templeList = list.filter(t => !t.monk_id);
+      setTransactions(templeList);
+      setSettings(config);
+      
+      const abbot = monksList.find(m => m.rank && m.rank.includes('เจ้าอาวาส'));
+      setAbbotMonk(abbot || null);
     } catch (err) {
       console.error('Failed to load transaction data', err);
     } finally {
@@ -69,6 +82,18 @@ export function useFinanceController() {
       description: 'คุณต้องการลบรายการบัญชีนี้ออกใช่หรือไม่? การกระทำนี้ไม่สามารถย้อนกลับได้',
       onConfirm: async () => {
         setConfirmState(null);
+        if (typeof window !== 'undefined' && !navigator.onLine) {
+          offlineSyncManager.queueAction('finance', 'delete', id, 'ลบรายการบัญชีการเงิน');
+          setAlertState({
+            show: true,
+            variant: 'warning',
+            title: 'ลบออฟไลน์สำเร็จ 📶',
+            description: 'รายการถูกบันทึกการลบในความจำเครื่องแล้ว และจะทำการซิงค์ลบให้อัตโนมัติเมื่อเน็ตกลับมา'
+          });
+          setTimeout(() => setAlertState(null), 4000);
+          return;
+        }
+
         try {
           await db.finance.delete(id);
           loadTransactions();
@@ -79,13 +104,24 @@ export function useFinanceController() {
             description: 'ลบรายการธุรกรรมการเงินเรียบร้อยแล้ว'
           });
           setTimeout(() => setAlertState(null), 4000);
-        } catch (err) {
-          setAlertState({
-            show: true,
-            variant: 'destructive',
-            title: 'เกิดข้อผิดพลาดในการลบรายการ',
-            description: 'ไม่สามารถดำเนินการลบรายการธุรกรรมนี้ได้'
-          });
+        } catch (err: any) {
+          if (err.message?.includes('fetch') || (typeof window !== 'undefined' && !navigator.onLine)) {
+            offlineSyncManager.queueAction('finance', 'delete', id, 'ลบรายการบัญชีการเงิน');
+            setAlertState({
+              show: true,
+              variant: 'warning',
+              title: 'ลบออฟไลน์สำเร็จ 📶',
+              description: 'เน็ตขัดข้อง รายการถูกบันทึกการลบในความจำเครื่องแล้ว และจะทำการซิงค์ลบให้อัตโนมัติเมื่อเน็ตกลับมา'
+            });
+            setTimeout(() => setAlertState(null), 4000);
+          } else {
+            setAlertState({
+              show: true,
+              variant: 'destructive',
+              title: 'เกิดข้อผิดพลาดในการลบรายการ',
+              description: 'ไม่สามารถดำเนินการลบรายการธุรกรรมนี้ได้'
+            });
+          }
         }
       }
     });
@@ -94,6 +130,25 @@ export function useFinanceController() {
   const handleSaveTx = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!currentTx || !currentTx.amount || !currentTx.category) return;
+
+    if (typeof window !== 'undefined' && !navigator.onLine) {
+      offlineSyncManager.queueAction(
+        'finance',
+        currentTx.id ? 'update' : 'create',
+        currentTx,
+        `รายการการเงิน (${currentTx.category} - ${currentTx.amount.toLocaleString()} บาท)`
+      );
+      setIsModalOpen(false);
+      setCurrentTx(null);
+      setAlertState({
+        show: true,
+        variant: 'warning',
+        title: 'บันทึกออฟไลน์สำเร็จ 📶',
+        description: 'ขณะนี้เครื่องไม่มีสัญญาณอินเทอร์เน็ต ข้อมูลถูกบันทึกไว้ในเครื่องแล้ว และจะทำการซิงค์ให้อัตโนมัติเมื่อเน็ตกลับมา'
+      });
+      setTimeout(() => setAlertState(null), 5000);
+      return;
+    }
 
     setIsSaving(true);
     try {
@@ -108,13 +163,31 @@ export function useFinanceController() {
         description: 'บันทึกรายการรายรับ-รายจ่ายเรียบร้อยแล้ว'
       });
       setTimeout(() => setAlertState(null), 4000);
-    } catch (err) {
-      setAlertState({
-        show: true,
-        variant: 'destructive',
-        title: 'เกิดข้อผิดพลาดในการบันทึกรายการ',
-        description: 'ไม่สามารถบันทึกรายการธุรกรรมการเงินนี้ได้'
-      });
+    } catch (err: any) {
+      if (err.message?.includes('fetch') || (typeof window !== 'undefined' && !navigator.onLine)) {
+        offlineSyncManager.queueAction(
+          'finance',
+          currentTx.id ? 'update' : 'create',
+          currentTx,
+          `รายการการเงิน (${currentTx.category} - ${currentTx.amount.toLocaleString()} บาท)`
+        );
+        setIsModalOpen(false);
+        setCurrentTx(null);
+        setAlertState({
+          show: true,
+          variant: 'warning',
+          title: 'บันทึกออฟไลน์สำเร็จ 📶',
+          description: 'เน็ตขัดข้อง ข้อมูลถูกบันทึกไว้ในความจำเครื่องแล้ว และจะทำการซิงค์ให้อัตโนมัติเมื่อเน็ตกลับมา'
+        });
+        setTimeout(() => setAlertState(null), 5000);
+      } else {
+        setAlertState({
+          show: true,
+          variant: 'destructive',
+          title: 'เกิดข้อผิดพลาดในการบันทึกรายการ',
+          description: 'ไม่สามารถบันทึกรายการธุรกรรมการเงินนี้ได้'
+        });
+      }
     } finally {
       setIsSaving(false);
     }
@@ -185,6 +258,9 @@ export function useFinanceController() {
     totalExpense,
     netBalance,
     filteredTxs,
-    thaiBahtText
+    thaiBahtText,
+    settings,
+    abbotMonk,
+    loadTransactions
   };
 }

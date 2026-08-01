@@ -12,7 +12,10 @@ import {
   ClipboardList,
   UserCheck,
   CheckCircle,
-  Phone
+  Phone,
+  MapPin,
+  QrCode,
+  ScanLine
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useInventoryController } from '@/app/Controllers/useInventoryController';
@@ -20,9 +23,11 @@ import { CustomDialog } from '@/components/ui/custom-dialog';
 import { usePermission } from '@/lib/usePermission';
 import { formatThaiDate } from '@/lib/utils';
 import { ThaiDatePicker } from '@/components/ui/thai-date-picker';
+import { ImageLightbox } from '@/components/ui/image-lightbox';
 
 export default function InventoryManagement() {
-  const { permissions } = usePermission();
+  const { permissions, role } = usePermission();
+  const [lightboxImage, setLightboxImage] = React.useState<string | null>(null);
   const {
     activeTab,
     setActiveTab,
@@ -30,6 +35,8 @@ export default function InventoryManagement() {
     loading,
     search,
     setSearch,
+    selectedCategory,
+    setSelectedCategory,
     isItemModalOpen,
     setIsItemModalOpen,
     currentItem,
@@ -51,10 +58,161 @@ export default function InventoryManagement() {
     updateItemFormFields,
     updateBorrowFormFields,
     filteredInventory,
-    filteredBorrows
+    filteredBorrows,
+    users
   } = useInventoryController();
 
   const [isUploadingPhoto, setIsUploadingPhoto] = React.useState(false);
+  const [isScannerOpen, setIsScannerOpen] = React.useState(false);
+  const [scanAlert, setScanAlert] = React.useState<{ show: boolean; title: string; description: string; variant: 'success' | 'destructive' | 'warning' } | null>(null);
+
+  // Play a brief success beep
+  const playBeep = () => {
+    try {
+      const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
+      const oscillator = audioCtx.createOscillator();
+      const gainNode = audioCtx.createGain();
+      oscillator.connect(gainNode);
+      gainNode.connect(audioCtx.destination);
+      oscillator.type = 'sine';
+      oscillator.frequency.value = 800; // Hz
+      gainNode.gain.setValueAtTime(0, audioCtx.currentTime);
+      gainNode.gain.linearRampToValueAtTime(0.1, audioCtx.currentTime + 0.05);
+      gainNode.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + 0.2);
+      oscillator.start(audioCtx.currentTime);
+      oscillator.stop(audioCtx.currentTime + 0.2);
+    } catch (e) {
+      console.warn('AudioContext beep failed', e);
+    }
+  };
+
+  const handlePrintQR = (item: any) => {
+    const printWindow = window.open('', '_blank', 'width=350,height=350');
+    if (!printWindow) return;
+    printWindow.document.write(`
+      <html>
+        <head>
+          <title>พิมพ์ QR Code: ${item.name}</title>
+          <style>
+            body {
+              display: flex;
+              flex-direction: column;
+              align-items: center;
+              justify-content: center;
+              margin: 0;
+              font-family: sans-serif;
+              text-align: center;
+              padding: 20px;
+            }
+            img {
+              width: 180px;
+              height: 180px;
+              margin-bottom: 15px;
+            }
+            h1 {
+              font-size: 16px;
+              margin: 5px 0;
+              font-weight: bold;
+            }
+            p {
+              font-size: 11px;
+              color: #555;
+              margin: 2px 0;
+            }
+          </style>
+        </head>
+        <body>
+          <img src="https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(item.id)}" onload="window.print(); window.close();" />
+          <h1>${item.name}</h1>
+          <p>หมวดหมู่: ${item.category}</p>
+          <p>รหัสพัสดุ: ${item.id}</p>
+        </body>
+      </html>
+    `);
+    printWindow.document.close();
+  };
+
+  const handleScanSuccess = (decodedText: string) => {
+    setIsScannerOpen(false);
+    playBeep();
+
+    const targetItem = inventory.find(i => i.id === decodedText || i.name === decodedText);
+    if (!targetItem) {
+      setScanAlert({
+        show: true,
+        title: 'ไม่พบข้อมูลครุภัณฑ์',
+        description: `รหัสพัสดุ "${decodedText}" ไม่ตรงกับรายการใดในระบบวัด`,
+        variant: 'destructive'
+      });
+      return;
+    }
+
+    if (activeTab === 'inventory') {
+      if (targetItem.available_qty <= 0) {
+        setScanAlert({
+          show: true,
+          title: 'ครุภัณฑ์ไม่เพียงพอให้ยืม',
+          description: `"${targetItem.name}" ในคลังถูกยืมไปทั้งหมดแล้ว (คงเหลือ 0 ชิ้น)`,
+          variant: 'warning'
+        });
+        return;
+      }
+      // Open add borrow modal with this item selected!
+      handleOpenAddBorrowModal(targetItem.id);
+    } else {
+      // Find active borrows
+      const activeRecords = filteredBorrows.filter(b => b.item_id === targetItem.id && b.status !== 'returned');
+      if (activeRecords.length === 0) {
+        setScanAlert({
+          show: true,
+          title: 'ไม่มีรายการยืมค้างไว้',
+          description: `ไม่พบรายการยืมค้างคืนสำหรับ "${targetItem.name}" ของผู้ใดในขณะนี้`,
+          variant: 'warning'
+        });
+      } else if (activeRecords.length === 1) {
+        // Open return confirmation directly
+        handleReturnItem(activeRecords[0]);
+      } else {
+        // Multiple borrowers: set search key to locate
+        setSearch(targetItem.name);
+        setScanAlert({
+          show: true,
+          title: 'พบรายการยืมค้างหลายราย',
+          description: `มีผู้ยืม "${targetItem.name}" ค้างไว้ทั้งหมด ${activeRecords.length} ราย ระบบได้ทำการกรองตารางแสดงผลเฉพาะรายการของสิ่งของชิ้นนี้ กรุณาเลือกคนที่จะรับคืน`,
+          variant: 'warning'
+        });
+      }
+    }
+  };
+
+  React.useEffect(() => {
+    let scannerRef: any = null;
+    if (isScannerOpen) {
+      import('html5-qrcode').then((module) => {
+        const scanner = new module.Html5QrcodeScanner(
+          "qr-reader",
+          { fps: 15, qrbox: { width: 220, height: 220 } },
+          /* verbose= */ false
+        );
+        scannerRef = scanner;
+        scanner.render(
+          (text) => {
+            handleScanSuccess(text);
+            scanner.clear().catch(console.error);
+          },
+          (err) => {
+            // Ignore normal scan failure ticks
+          }
+        );
+      }).catch(console.error);
+
+      return () => {
+        if (scannerRef) {
+          scannerRef.clear().catch(console.error);
+        }
+      };
+    }
+  }, [isScannerOpen]);
 
   return (
     <div className="space-y-6">
@@ -70,7 +228,14 @@ export default function InventoryManagement() {
           </p>
         </div>
         <div className="flex gap-2">
-          {permissions.canCreate && (
+          <Button
+            onClick={() => setIsScannerOpen(true)}
+            className="bg-amber-100 hover:bg-amber-200 text-amber-900 dark:bg-amber-950/40 dark:hover:bg-amber-950/70 dark:text-amber-200 border border-amber-300/40 dark:border-amber-950/40 font-bold text-xs py-5 px-5 rounded-xl flex items-center gap-1.5 cursor-pointer shadow-sm"
+          >
+            <ScanLine className="size-4 text-amber-600 dark:text-amber-500" />
+            สแกน QR
+          </Button>
+          {(permissions.canCreate || role === 'member') && (
             <>
               {activeTab === 'inventory' ? (
                 <Button
@@ -82,7 +247,7 @@ export default function InventoryManagement() {
                 </Button>
               ) : (
                 <Button
-                  onClick={handleOpenAddBorrowModal}
+                  onClick={() => handleOpenAddBorrowModal()}
                   className="bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs py-5 px-5 rounded-xl flex items-center gap-1.5 border-none shadow-md shadow-amber-600/10 cursor-pointer"
                 >
                   <Plus className="size-4" />
@@ -121,6 +286,51 @@ export default function InventoryManagement() {
         />
       )}
 
+      {/* QR Scanner Modal */}
+      {isScannerOpen && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-[#15110a] rounded-2xl border border-amber-200/40 dark:border-amber-950/30 p-6 max-w-sm w-full relative shadow-2xl">
+            <button 
+              onClick={() => setIsScannerOpen(false)}
+              className="absolute top-4 right-4 text-amber-800/40 hover:text-amber-800/80 dark:text-amber-500/40 dark:hover:text-amber-200 cursor-pointer p-1"
+            >
+              <X className="size-5" />
+            </button>
+            <h3 className="text-base font-extrabold text-amber-950 dark:text-amber-100 font-heading mb-4 flex items-center gap-1.5">
+              <ScanLine className="size-5 text-amber-500" />
+              สแกน QR Code พัสดุวัด
+            </h3>
+            <p className="text-xs text-amber-700/60 dark:text-amber-400/50 mb-5 leading-relaxed">
+              ส่องกล้องไปที่ QR Code ของสิ่งของวัดเพื่อทำรายการยืม หรือ คืนโดยอัตโนมัติ
+            </p>
+            <div className="overflow-hidden rounded-xl bg-amber-50/10 dark:bg-amber-950/5 border border-amber-200/30 dark:border-amber-950/20 max-w-full">
+              <div id="qr-reader" className="w-full"></div>
+            </div>
+            <div className="mt-5 text-center">
+              <Button 
+                onClick={() => setIsScannerOpen(false)}
+                variant="outline"
+                className="w-full text-xs font-bold py-2 border-amber-200 hover:bg-amber-500/10 cursor-pointer"
+              >
+                ยกเลิกและปิดกล้อง
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Scan Alert Dialog */}
+      {scanAlert && scanAlert.show && (
+        <CustomDialog
+          show={scanAlert.show}
+          type="alert"
+          variant={scanAlert.variant}
+          title={scanAlert.title}
+          description={scanAlert.description}
+          onConfirm={() => setScanAlert(null)}
+        />
+      )}
+
       {/* Tabs selection */}
       <div className="flex border-b border-amber-200/50 dark:border-amber-950/40">
         <button
@@ -152,19 +362,35 @@ export default function InventoryManagement() {
       </div>
 
       {/* Filters bar */}
-      <div className="flex bg-white dark:bg-[#15110a] p-4 rounded-xl border border-amber-200/40 dark:border-amber-950/30">
+      <div className="flex flex-col sm:flex-row gap-3 bg-white dark:bg-[#15110a] p-4 rounded-xl border border-amber-200/40 dark:border-amber-950/30">
         <div className="relative flex-1">
           <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-amber-700/40 dark:text-amber-500/30">
             <Search className="size-4" />
           </div>
           <input
             type="text"
-            placeholder={activeTab === 'inventory' ? 'ค้นหาตามชื่อครุภัณฑ์, หมวดหมู่...' : 'ค้นหาตามชื่อผู้ยืม, เบอร์ติดต่อ, สิ่งของ...'}
+            placeholder={activeTab === 'inventory' ? 'ค้นหาตามชื่อ, หมวดหมู่, สถานที่เก็บ...' : 'ค้นหาตามชื่อผู้ยืม, เบอร์ติดต่อ, สิ่งของ...'}
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="w-full pl-9 pr-4 py-2 rounded-lg border border-amber-200/60 dark:border-amber-950 bg-amber-50/10 dark:bg-[#1a150e] text-amber-950 dark:text-amber-100 placeholder-amber-700/30 dark:placeholder-amber-500/20 text-xs outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 transition-all"
           />
         </div>
+        {activeTab === 'inventory' && (
+          <div className="w-full sm:w-48 shrink-0">
+            <select
+              value={selectedCategory}
+              onChange={(e) => setSelectedCategory(e.target.value)}
+              className="w-full px-3 py-2 text-xs rounded-lg border border-amber-200/60 dark:border-amber-950 bg-white dark:bg-[#110e08] text-amber-950 dark:text-amber-100 outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 cursor-pointer"
+            >
+              <option value="all">ทุกหมวดหมู่ (All)</option>
+              <option value="อุปกรณ์จัดงาน">อุปกรณ์จัดงาน</option>
+              <option value="เครื่องเสียง">ระบบเครื่องเสียง</option>
+              <option value="เครื่องครัว">เครื่องครัววัด</option>
+              <option value="ของตกแต่งพิธี">ของตกแต่งพิธี</option>
+              <option value="อื่น ๆ">หมวดหมู่อื่น ๆ</option>
+            </select>
+          </div>
+        )}
       </div>
 
       {/* Tabs View logic */}
@@ -192,8 +418,9 @@ export default function InventoryManagement() {
                     /* eslint-disable-next-line @next/next/no-img-element */
                     <img
                       src={item.image_url}
-                      className="w-16 h-16 rounded-xl object-cover border border-amber-200/40 dark:border-amber-950/30"
+                      className="w-16 h-16 rounded-xl object-cover border border-amber-200/40 dark:border-amber-950/30 cursor-zoom-in hover:opacity-90 transition-opacity"
                       alt={item.name}
+                      onClick={() => setLightboxImage(item.image_url || null)}
                       onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
                     />
                   )}
@@ -234,17 +461,33 @@ export default function InventoryManagement() {
                   </div>
                 </div>
 
+                {item.location && (
+                  <div className="text-[11px] text-amber-800/70 dark:text-amber-400/70 flex items-center gap-1.5 mb-4 px-1 animate-fade-in">
+                    <MapPin className="size-3.5 text-amber-600 dark:text-amber-500 shrink-0" />
+                    <span>สถานที่เก็บ: <strong className="font-semibold text-amber-950 dark:text-amber-200">{item.location}</strong></span>
+                  </div>
+                )}
+
                 {/* Actions */}
-                {(permissions.canEdit || permissions.canDelete) && (
+                {(permissions.canEdit || permissions.canDelete || role === 'member') && (
                   <div className="flex gap-2 mt-6 pt-4 border-t border-amber-100/50 dark:border-amber-950/40">
-                    {permissions.canEdit && (
+                    <Button
+                      variant="outline"
+                      onClick={() => handlePrintQR(item)}
+                      className="flex-1 flex items-center justify-center gap-1.5 py-2 px-3 border-amber-200 hover:bg-amber-500/10 text-amber-800 dark:text-amber-300 text-xs font-bold cursor-pointer"
+                      title="พิมพ์ QR Code ติดสติกเกอร์สำหรับพัสดุชิ้นนี้"
+                    >
+                      <QrCode className="size-3.5 text-amber-600 dark:text-amber-500" />
+                      พิมพ์ QR
+                    </Button>
+                    {(permissions.canEdit || role === 'member') && (
                       <Button
                         variant="outline"
                         onClick={() => handleOpenEditItemModal(item)}
                         className="flex-1 flex items-center justify-center gap-1.5 py-2 px-3 border-amber-200 hover:bg-amber-500/10 text-amber-800 dark:text-amber-300 text-xs font-bold cursor-pointer"
                       >
                         <Edit className="size-3.5" />
-                        แก้ไขข้อมูล
+                        แก้ไข
                       </Button>
                     )}
                     {permissions.canDelete && (
@@ -254,7 +497,7 @@ export default function InventoryManagement() {
                         className="flex-1 flex items-center justify-center gap-1.5 py-2 px-3 text-xs font-bold cursor-pointer"
                       >
                         <Trash className="size-3.5" />
-                        ลบข้อมูล
+                        ลบ
                       </Button>
                     )}
                   </div>
@@ -280,8 +523,9 @@ export default function InventoryManagement() {
                   <th className="py-3.5 px-3 text-center">จำนวนยืม</th>
                   <th className="py-3.5 px-3">วันที่ยืม</th>
                   <th className="py-3.5 px-3">กำหนดคืน</th>
+                  <th className="py-3.5 px-3">ผู้ให้ยืม</th>
                   <th className="py-3.5 px-3">สถานะ</th>
-                  {permissions.canEdit && <th className="py-3.5 px-3 text-center">จัดการคืน</th>}
+                  {(permissions.canEdit || role === 'member') && <th className="py-3.5 px-3 text-center">จัดการคืน</th>}
                   {permissions.canDelete && <th className="py-3.5 px-3 text-right">ลบ</th>}
                 </tr>
               </thead>
@@ -301,6 +545,13 @@ export default function InventoryManagement() {
                       {formatThaiDate(record.due_date)}
                       {record.status === 'overdue' && <span className="text-[9px] font-bold text-red-500 block">เลยกำหนดส่ง</span>}
                     </td>
+                    <td className="py-3.5 px-3 font-semibold text-amber-900 dark:text-amber-300">
+                      {record.created_by ? (
+                        users.find(u => u.id === record.created_by)?.fullName || 'เจ้าหน้าที่วัด'
+                      ) : (
+                        <span className="text-amber-800/30 dark:text-amber-500/25 italic">ไม่ระบุ</span>
+                      )}
+                    </td>
                     <td className="py-3.5 px-3">
                       <span className={`px-2 py-0.5 rounded-[4px] text-[10px] font-bold ${
                         record.status === 'returned'
@@ -311,9 +562,14 @@ export default function InventoryManagement() {
                       }`}>
                         {record.status === 'returned' ? 'คืนของแล้ว' : record.status === 'overdue' ? 'เกินกำหนดคืน' : 'กำลังยืม'}
                       </span>
-                      {record.return_date && <span className="text-[9px] text-amber-800/40 block mt-0.5">คืนเมื่อ: {formatThaiDate(record.return_date)}</span>}
+                      {record.return_date && (
+                        <span className="text-[9px] text-amber-800/40 block mt-0.5">
+                          คืนเมื่อ: {formatThaiDate(record.return_date)}
+                          {record.returned_by && ` โดย ${users.find(u => u.id === record.returned_by)?.fullName || 'เจ้าหน้าที่'}`}
+                        </span>
+                      )}
                     </td>
-                    {permissions.canEdit && (
+                    {(permissions.canEdit || role === 'member') && (
                       <td className="py-3.5 px-3 text-center">
                         {record.status !== 'returned' ? (
                           <Button
@@ -503,6 +759,18 @@ export default function InventoryManagement() {
                 />
               </div>
 
+              {/* Location */}
+              <div className="space-y-1">
+                <label className="text-xs font-bold text-amber-900/80 dark:text-amber-300">สถานที่ / ห้องที่จัดเก็บ</label>
+                <input
+                  type="text"
+                  value={currentItem.location || ''}
+                  onChange={(e) => updateItemFormFields('location', e.target.value)}
+                  placeholder="เช่น โรงเก็บเรือนแก้ว, ห้องพัสดุศาลา 1"
+                  className="w-full px-3 py-2 text-xs rounded-lg border border-amber-200 dark:border-amber-950 bg-white dark:bg-[#110e08] text-amber-950 dark:text-amber-100 outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500"
+                />
+              </div>
+
               {/* Condition */}
               <div className="space-y-1">
                 <label className="text-xs font-bold text-amber-900/80 dark:text-amber-300">สภาพปัจจุบัน</label>
@@ -662,6 +930,7 @@ export default function InventoryManagement() {
           </div>
         </div>
       )}
+      <ImageLightbox src={lightboxImage} onClose={() => setLightboxImage(null)} />
     </div>
   );
 }

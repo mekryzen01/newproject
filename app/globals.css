@@ -1,4 +1,3 @@
-@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+Thai:wdth,wght@62.5..100,100..900&display=swap');
 @import "tailwindcss";
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
@@ -166,3 +165,146 @@
 .animate-pulse-subtle {
   animation: pulseSubtle 1.8s infinite ease-in-out;
 }
+
+/* Custom premium scrollbar styling */
+.custom-scrollbar::-webkit-scrollbar {
+  width: 4px;
+  height: 4px;
+}
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(245, 158, 11, 0.2);
+  border-radius: 4px;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: rgba(245, 158, 11, 0.45);
+}
+
+/* Custom global scrollbar styling for page content */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(245, 158, 11, 0.15);
+  border-radius: 6px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(245, 158, 11, 0.35);
+}
+
+/* Global selection color */
+::selection {
+  background-color: rgba(245, 158, 11, 0.25);
+  color: #78350f;
+}
+
+/* Premium glassmorphism utility classes */
+.glass-card {
+  background: rgba(255, 255, 255, 0.65);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(245, 158, 11, 0.15);
+}
+
+.dark .glass-card {
+  background: rgba(21, 17, 10, 0.7);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(245, 158, 11, 0.08);
+}
+
+/* Print styles */
+@media print {
+  @page {
+    size: A4 portrait;
+    margin: 15mm 15mm 15mm 15mm;
+  }
+
+  /* Reset root and layout wrappers to simple full-width block elements during print */
+  html, body, main, #__next, [role="main"],
+  div.min-h-screen.flex,
+  div.flex-1.flex.flex-col,
+  .space-y-6, 
+  div.lg\:col-span-2, .lg\:col-span-2 {
+    display: block !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 100% !important;
+    background: white !important;
+    background-color: white !important;
+    color: black !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    box-shadow: none !important;
+    height: auto !important;
+    min-height: 0 !important;
+    overflow: visible !important;
+    flex: none !important;
+    float: none !important;
+    position: static !important;
+  }
+
+  /* Clean up tables for print to stretch wide and fill space */
+  table {
+    width: 100% !important;
+    max-width: 100% !important;
+    border-collapse: collapse !important;
+    border: 1.5px solid black !important;
+    margin-top: 25px !important;
+  }
+
+  th {
+    border: 1.5px solid black !important;
+    padding: 10px 12px !important;
+    background-color: #f2f2f2 !important;
+    color: black !important;
+    font-weight: bold !important;
+    font-size: 13px !important;
+  }
+
+  td {
+    border: 1.5px solid black !important;
+    padding: 10px 12px !important;
+    color: black !important;
+    font-size: 12px !important;
+  }
+
+  /* Make checkboxes boxes look clean */
+  .print\:block.size-4 {
+    width: 18px !important;
+    height: 18px !important;
+    border: 1.5px solid black !important;
+  }
+
+  /* Prevent page breaks inside table rows */
+  tr {
+    page-break-inside: avoid !important;
+    page-break-after: auto !important;
+  }
+
+  /* Hiding rules declared at the bottom with higher specificity to override grid/flex displays */
+  body .print-none,
+  body .print-hidden,
+  body .print\:hidden,
+  body .no-print,
+  body aside,
+  body header,
+  body nav,
+  body button,
+  body form,
+  body input.no-print,
+  body td.no-print,
+  body th.no-print {
+    display: none !important;
+    height: 0 !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    border: none !important;
+  }
+}

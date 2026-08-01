@@ -23,7 +23,7 @@ import { usePermission } from '@/lib/usePermission';
 import { db, Sala, SalaBooking } from '@/lib/db';
 import { formatThaiDate } from '@/lib/utils';
 import { ThaiDatePicker } from '@/components/ui/thai-date-picker';
-import { checkWanKaoKong } from '@/lib/lanna-calendar';
+import { checkWanKaoKong, getThaiLunarDetails } from '@/lib/lanna-calendar';
 
 // Thai Month Names
 const THAI_MONTHS = [
@@ -174,8 +174,9 @@ const getSpecialDayInfo = (dateStr: string) => {
     '2027-12-31': { label: 'แรม 13 ค่ำ เดือน 1', isWanPhra: true },
   };
 
-  const info: { isWanPhra: boolean; label?: string; holidayName?: string } = {
+  const info: { isWanPhra: boolean; isWanKon: boolean; label?: string; holidayName?: string } = {
     isWanPhra: false,
+    isWanKon: false,
     label: undefined,
     holidayName: undefined
   };
@@ -195,6 +196,28 @@ const getSpecialDayInfo = (dateStr: string) => {
     }
   }
 
+  // Calculate dynamically if not already set or to check Wan Kon
+  try {
+    const parsedDate = new Date(dateStr);
+    if (!isNaN(parsedDate.getTime())) {
+      const lunar = getThaiLunarDetails(parsedDate);
+      if (lunar.isWanPhra) {
+        info.isWanPhra = true;
+        if (!info.label) {
+          info.label = lunar.lunarDayName;
+        }
+      }
+      if (lunar.isWanKon) {
+        info.isWanKon = true;
+        if (!info.label) {
+          info.label = lunar.lunarDayName;
+        }
+      }
+    }
+  } catch (e) {
+    console.error('Failed to parse date for lunar details', e);
+  }
+
   return info;
 };
 
@@ -203,6 +226,8 @@ export default function ScheduleManagement() {
   const [viewMode, setViewMode] = React.useState<'calendar' | 'list'>('calendar');
   const [currentDate, setCurrentDate] = React.useState(new Date());
   const [selectedDateStr, setSelectedDateStr] = React.useState<string>(formatDateStr(new Date()));
+  const [showWanPhra, setShowWanPhra] = React.useState(true);
+  const [showWanKon, setShowWanKon] = React.useState(true);
 
   const {
     monks,
@@ -466,18 +491,43 @@ export default function ScheduleManagement() {
           />
         </div>
 
-        <div className="flex items-center gap-2">
-          <span className="text-xs font-bold text-amber-800/70 dark:text-amber-400/70 shrink-0">สถานะงานพิธี:</span>
-          <select
-            value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
-            className="py-2 px-3 rounded-lg border border-amber-200/60 dark:border-amber-950 bg-amber-50/10 dark:bg-[#1a150e] text-amber-950 dark:text-amber-100 text-xs outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 cursor-pointer"
-          >
-            <option value="all">งานทั้งหมด</option>
-            <option value="upcoming">เร็ว ๆ นี้ (ยังไม่จัด)</option>
-            <option value="completed">เสร็จสิ้นแล้ว</option>
-            <option value="cancelled">ยกเลิกแล้ว</option>
-          </select>
+        <div className="flex flex-wrap items-center gap-4">
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-bold text-amber-800/70 dark:text-amber-400/70 shrink-0">สถานะงานพิธี:</span>
+            <select
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
+              className="py-2 px-3 rounded-lg border border-amber-200/60 dark:border-amber-950 bg-amber-50/10 dark:bg-[#1a150e] text-amber-950 dark:text-amber-100 text-xs outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 cursor-pointer"
+            >
+              <option value="all">งานทั้งหมด</option>
+              <option value="upcoming">เร็ว ๆ นี้ (ยังไม่จัด)</option>
+              <option value="completed">เสร็จสิ้นแล้ว</option>
+              <option value="cancelled">ยกเลิกแล้ว</option>
+            </select>
+          </div>
+
+          {viewMode === 'calendar' && (
+            <div className="flex items-center gap-3 border-t md:border-t-0 md:border-l border-amber-200/40 dark:border-amber-950/40 pt-2 md:pt-0 md:pl-4">
+              <label className="flex items-center gap-1.5 text-xs font-bold text-amber-800/75 dark:text-amber-400 cursor-pointer select-none">
+                <input 
+                  type="checkbox" 
+                  checked={showWanPhra}
+                  onChange={(e) => setShowWanPhra(e.target.checked)}
+                  className="rounded text-amber-500 border-amber-300 focus:ring-amber-500 accent-amber-500" 
+                />
+                🌸 วันพระ
+              </label>
+              <label className="flex items-center gap-1.5 text-xs font-bold text-amber-800/75 dark:text-amber-400 cursor-pointer select-none">
+                <input 
+                  type="checkbox" 
+                  checked={showWanKon}
+                  onChange={(e) => setShowWanKon(e.target.checked)}
+                  className="rounded text-amber-500 border-amber-300 focus:ring-amber-500 accent-amber-500" 
+                />
+                🍂 วันโกน
+              </label>
+            </div>
+          )}
         </div>
       </div>
 
@@ -572,12 +622,20 @@ export default function ScheduleManagement() {
                       </span>
                       
                       <div className="flex flex-col gap-0.5 items-end">
-                        {specialInfo.isWanPhra && (
+                        {showWanPhra && specialInfo.isWanPhra && (
                           <span 
                             className="bg-yellow-500/20 text-yellow-700 dark:text-yellow-400 text-[8px] font-extrabold px-1 py-0.5 rounded flex items-center gap-0.5 shrink-0" 
                             title={`วันพระ: ${specialInfo.label}`}
                           >
                             🌸 วันพระ
+                          </span>
+                        )}
+                        {showWanKon && specialInfo.isWanKon && (
+                          <span 
+                            className="bg-orange-500/10 text-orange-700 dark:text-orange-400 text-[8px] font-extrabold px-1 py-0.5 rounded flex items-center gap-0.5 shrink-0" 
+                            title={`วันโกน: ${specialInfo.label}`}
+                          >
+                            🍂 วันโกน
                           </span>
                         )}
                         {wanKaoKongInfo.isWanKaoKong && (
@@ -674,8 +732,8 @@ export default function ScheduleManagement() {
               
               return (
                 <div className="space-y-3">
-                  {/* Holidays, Wan Phra or Wan Kao Kong if any */}
-                  {(specialInfo.isWanPhra || specialInfo.holidayName || wanKaoKongInfo.isWanKaoKong) && (
+                  {/* Holidays, Wan Phra, Wan Kon or Wan Kao Kong if any */}
+                  {(specialInfo.isWanPhra || specialInfo.isWanKon || specialInfo.holidayName || wanKaoKongInfo.isWanKaoKong) && (
                     <div className="bg-amber-500/5 border border-amber-500/20 p-3.5 rounded-xl flex flex-col gap-1.5 text-xs">
                       {specialInfo.holidayName && (
                         <div className="text-red-600 dark:text-red-400 font-extrabold flex items-center gap-1">
@@ -685,6 +743,11 @@ export default function ScheduleManagement() {
                       {specialInfo.isWanPhra && (
                         <div className="text-yellow-700 dark:text-yellow-400 font-extrabold flex items-center gap-1">
                           🌸 วันธรรมสวนะ (วันพระ): {specialInfo.label}
+                        </div>
+                      )}
+                      {specialInfo.isWanKon && (
+                        <div className="text-orange-700 dark:text-orange-400 font-extrabold flex items-center gap-1">
+                          🍂 วันโกน: {specialInfo.label}
                         </div>
                       )}
                       {wanKaoKongInfo.isWanKaoKong && (

@@ -1,6 +1,7 @@
 'use client';
 
 import React from 'react';
+import Link from 'next/link';
 import {
   Users,
   Search,
@@ -18,19 +19,23 @@ import {
   Heart,
   LayoutGrid,
   List,
-  Info
+  Info,
+  MessageCircle
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useMonksController } from '@/app/Controllers/useMonksController';
 import { CustomDialog } from '@/components/ui/custom-dialog';
 import { usePermission } from '@/lib/usePermission';
-import { Monk } from '@/lib/db';
+import { db, Monk } from '@/lib/db';
 import { formatThaiDate } from '@/lib/utils';
 import Image from 'next/image';
 import { ThaiDatePicker } from '@/components/ui/thai-date-picker';
+import { ImageLightbox } from '@/components/ui/image-lightbox';
 
 export default function MonksManagement() {
-  const { permissions } = usePermission();
+  const { role, permissions, loaded: permLoaded } = usePermission();
+
+  const [lightboxImage, setLightboxImage] = React.useState<string | null>(null);
   const [detailedMonk, setDetailedMonk] = React.useState<Monk | null>(null);
   const [expandedMonkIds, setExpandedMonkIds] = React.useState<Record<string, boolean>>({});
   const [viewMode, setViewMode] = React.useState<'grid' | 'table'>(() => {
@@ -47,6 +52,16 @@ export default function MonksManagement() {
   const [isUploadingPhoto, setIsUploadingPhoto] = React.useState(false);
   const [isUploadingCertificate, setIsUploadingCertificate] = React.useState(false);
   const [isUploadingIdCard, setIsUploadingIdCard] = React.useState(false);
+
+  const [currentUser, setCurrentUser] = React.useState<any>(null);
+  React.useEffect(() => {
+    const sessionStr = typeof window !== 'undefined' ? localStorage.getItem('temple_session') : null;
+    if (sessionStr) {
+      try {
+        setCurrentUser(JSON.parse(sessionStr).user);
+      } catch (e) {}
+    }
+  }, []);
 
   const toggleExpandMonk = (id: string) => {
     setExpandedMonkIds((prev) => ({ ...prev, [id]: !prev[id] }));
@@ -73,6 +88,369 @@ export default function MonksManagement() {
     updateFormFields,
     filteredMonks
   } = useMonksController();
+
+  const myMonk = React.useMemo(() => {
+    if (filteredMonks.length === 0) return null;
+    if (currentUser?.monk_id) {
+      const found = filteredMonks.find(m => m.id === currentUser.monk_id);
+      if (found) return found;
+    }
+    const uName = currentUser?.fullName || currentUser?.name || '';
+    const cleanUser = uName.replace(/\s+/g, '').replace(/(พระ|สามเณร|นาย)/g, '');
+    if (cleanUser) {
+      const matched = filteredMonks.find(m => {
+        const cleanMonk = m.name.replace(/\s+/g, '').replace(/(พระ|สามเณร|นาย)/g, '');
+        return cleanUser.includes(cleanMonk) || cleanMonk.includes(cleanUser) || (currentUser?.phone && m.phone && currentUser.phone === m.phone);
+      });
+      if (matched) return matched;
+    }
+    return filteredMonks[0] || null;
+  }, [currentUser, filteredMonks]);
+
+  const [userEmail, setUserEmail] = React.useState('');
+  const [newPassword, setNewPassword] = React.useState('');
+  const [confirmPassword, setConfirmPassword] = React.useState('');
+  const [passwordError, setPasswordError] = React.useState('');
+  const [passwordSuccess, setPasswordSuccess] = React.useState('');
+
+  const handleSaveMemberProfile = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!currentMonk) return;
+
+    if (newPassword || confirmPassword) {
+      if (newPassword.length < 4) {
+        setPasswordError('รหัสผ่านใหม่ต้องมีความยาวอย่างน้อย 4 ตัวอักษร');
+        return;
+      }
+      if (newPassword !== confirmPassword) {
+        setPasswordError('รหัสผ่านใหม่และการยืนยันรหัสผ่านไม่ตรงกัน');
+        return;
+      }
+    }
+
+    try {
+      await handleSaveMonk(e);
+      if (currentUser) {
+        let isUserUpdated = false;
+        const updatedUser = { ...currentUser };
+
+        if (userEmail && userEmail !== currentUser.email) {
+          updatedUser.email = userEmail;
+          isUserUpdated = true;
+        }
+
+        if (newPassword) {
+          updatedUser.password = newPassword;
+          isUserUpdated = true;
+        }
+
+        if (isUserUpdated) {
+          if (currentUser.id) {
+            try {
+              await db.users.save(updatedUser);
+            } catch (err) {
+              console.error('Failed to update db user credentials', err);
+            }
+          }
+          const sessionStr = localStorage.getItem('temple_session');
+          if (sessionStr) {
+            try {
+              const parsed = JSON.parse(sessionStr);
+              parsed.user = updatedUser;
+              localStorage.setItem('temple_session', JSON.stringify(parsed));
+            } catch (e) {}
+          }
+          setCurrentUser(updatedUser);
+        }
+      }
+      setIsModalOpen(false);
+      setNewPassword('');
+      setConfirmPassword('');
+      setPasswordError('');
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  // --- SPECIALIZED MEMBER PERSONAL CLERGY PROFILE VIEW ---
+  if (permLoaded && role === 'member') {
+    const targetMonk = myMonk;
+
+    return (
+      <div className="space-y-6 max-w-4xl mx-auto animate-fade-in">
+        {/* Header */}
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border-b border-amber-200/60 pb-4">
+          <div>
+            <h2 className="text-2xl font-bold font-heading text-amber-900 dark:text-amber-200 flex items-center gap-2">
+              <Users className="size-6 text-amber-600" />
+              ข้อมูลส่วนตัวศาสนบุคลากร (My Clergy Profile)
+            </h2>
+            <p className="text-xs text-amber-700/60 dark:text-amber-400/60 mt-0.5">
+              แสดงข้อมูลประวัติ พรรษา สมณศักดิ์ และทะเบียนส่วนตัวประจำรูปของคุณ
+            </p>
+          </div>
+
+          {targetMonk && (
+            <Button
+              onClick={() => {
+                handleOpenEditModal(targetMonk);
+                setUserEmail(currentUser?.email || '');
+                setNewPassword('');
+                setConfirmPassword('');
+                setPasswordError('');
+              }}
+              className="bg-amber-500 hover:bg-amber-600 text-white font-bold text-xs py-2.5 px-4 rounded-xl flex items-center gap-1.5 cursor-pointer shadow-md"
+            >
+              <Edit className="size-4" />
+              แก้ไขข้อมูลส่วนตัว, อีเมล & ตั้งรหัสผ่าน
+            </Button>
+          )}
+        </div>
+
+        {targetMonk ? (
+          <div className="bg-white dark:bg-[#15110a] rounded-3xl border border-amber-200/80 dark:border-amber-950/40 p-6 md:p-8 shadow-xl space-y-6">
+            {/* Profile Header Card */}
+            <div className="flex flex-col md:flex-row items-center md:items-start gap-6 border-b border-amber-100 dark:border-amber-950/40 pb-6">
+              <div className="w-28 h-28 rounded-2xl border-2 border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-950/20 overflow-hidden flex items-center justify-center shrink-0 shadow-md relative">
+                {targetMonk.image_url ? (
+                  <img
+                    src={targetMonk.image_url}
+                    alt={targetMonk.name}
+                    className="w-full h-full object-cover cursor-pointer"
+                    onClick={() => setLightboxImage(targetMonk.image_url!)}
+                  />
+                ) : (
+                  <Users className="size-12 text-amber-600 dark:text-amber-500" />
+                )}
+              </div>
+
+              <div className="flex-1 text-center md:text-left space-y-2">
+                <div className="flex flex-wrap items-center justify-center md:justify-start gap-2">
+                  <h3 className="text-2xl font-black text-amber-950 dark:text-amber-100 font-heading">
+                    {targetMonk.name}
+                  </h3>
+                  <span className="text-sm font-bold text-amber-700 dark:text-amber-400 font-mono bg-amber-100 dark:bg-amber-950/60 px-3 py-0.5 rounded-full border border-amber-200 dark:border-amber-800">
+                    ฉายา: {targetMonk.chaya || '-'}
+                  </span>
+                </div>
+
+                <div className="flex flex-wrap items-center justify-center md:justify-start gap-2 text-xs">
+                  <span className="font-bold text-white bg-amber-500 px-3 py-1 rounded-lg">
+                    {targetMonk.rank || 'พระลูกวัด'}
+                  </span>
+                  <span className="font-bold text-emerald-800 dark:text-emerald-300 bg-emerald-100 dark:bg-emerald-950/60 px-3 py-1 rounded-lg border border-emerald-300">
+                    {targetMonk.status === 'active' ? 'อยู่จำพรรษาปกติ' : 'อื่นๆ'}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* Profile Grid Details */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-xs">
+              <div className="space-y-3 p-4 rounded-2xl bg-amber-50/50 dark:bg-amber-950/20 border border-amber-200/50 dark:border-amber-950/30">
+                <h4 className="font-extrabold text-sm text-amber-950 dark:text-amber-200 font-heading">
+                  📜 ข้อมูลการบรรพชา-อุปสมบท
+                </h4>
+                <div className="space-y-1.5 text-stone-700 dark:text-amber-300">
+                  <div>วันอุปสมบท: <strong className="text-amber-950 dark:text-amber-100">{formatThaiDate(targetMonk.ordination_date, 'long') || '-'}</strong></div>
+                  <div>วันบรรพชา (เณร): <strong className="text-amber-950 dark:text-amber-100">{formatThaiDate(targetMonk.novice_ordination_date, 'long') || '-'}</strong></div>
+                  <div>เบอร์โทรศัพท์ติดต่อ: <strong className="text-amber-950 dark:text-amber-100">{targetMonk.phone || '-'}</strong></div>
+                </div>
+              </div>
+
+              <div className="space-y-3 p-4 rounded-2xl bg-amber-50/50 dark:bg-amber-950/20 border border-amber-200/50 dark:border-amber-950/30">
+                <h4 className="font-extrabold text-sm text-amber-950 dark:text-amber-200 font-heading">
+                  🏡 ข้อมูลภูมิลำเนา & ผู้ติดต่อ
+                </h4>
+                <div className="space-y-1.5 text-stone-700 dark:text-amber-300">
+                  <div>ที่อยู่ภูมิลำเนา: <strong className="text-amber-950 dark:text-amber-100">{targetMonk.domicile_address || '-'}</strong></div>
+                  <div>ชื่อบิดา: <strong className="text-amber-950 dark:text-amber-100">{targetMonk.father_name || '-'}</strong></div>
+                  <div>ชื่อมารดา: <strong className="text-amber-950 dark:text-amber-100">{targetMonk.mother_name || '-'}</strong></div>
+                  <div>ผู้ติดต่อฉุกเฉิน: <strong className="text-amber-950 dark:text-amber-100">{targetMonk.emergency_contact || '-'} ({targetMonk.emergency_phone || '-'})</strong></div>
+                </div>
+              </div>
+            </div>
+
+            {/* Scanned Certificates */}
+            <div className="space-y-3 border-t border-amber-100 dark:border-amber-950/40 pt-4">
+              <h4 className="font-extrabold text-sm text-amber-950 dark:text-amber-200 font-heading">
+                📄 เอกสารรับรองประจำรูป (ใบสุทธิ / บัตรประชาชน)
+              </h4>
+              <div className="flex flex-wrap gap-4">
+                {targetMonk.certificate_url ? (
+                  <div
+                    onClick={() => setLightboxImage(targetMonk.certificate_url!)}
+                    className="p-3 rounded-xl border border-amber-300 dark:border-amber-800 bg-amber-50/40 dark:bg-amber-950/20 text-xs font-bold text-amber-900 dark:text-amber-200 cursor-pointer hover:bg-amber-500/10 flex items-center gap-2"
+                  >
+                    <span>📑 ดูภาพใบสุทธิพระภิกษุ</span>
+                  </div>
+                ) : (
+                  <span className="text-xs text-stone-400">ยังไม่มีการอัปโหลดใบสุทธิ</span>
+                )}
+
+                {targetMonk.id_card_url ? (
+                  <div
+                    onClick={() => setLightboxImage(targetMonk.id_card_url!)}
+                    className="p-3 rounded-xl border border-amber-300 dark:border-amber-800 bg-amber-50/40 dark:bg-amber-950/20 text-xs font-bold text-amber-900 dark:text-amber-200 cursor-pointer hover:bg-amber-500/10 flex items-center gap-2"
+                  >
+                    <span>🪪 ดูภาพบัตรประชาชน</span>
+                  </div>
+                ) : (
+                  <span className="text-xs text-stone-400">ยังไม่มีการอัปโหลดบัตรประชาชน</span>
+                )}
+              </div>
+            </div>
+          </div>
+        ) : (
+          <div className="p-8 text-center bg-amber-50/50 rounded-2xl border border-amber-200 text-xs text-amber-800">
+            ไม่พบข้อมูลทะเบียนส่วนตัวของคุณ โปรดติดต่อผู้ดูแลระบบเพื่อเชื่อมโยงบัญชีกับทะเบียนวัด
+          </div>
+        )}
+
+        {/* Member Edit Profile & Change Password Modal */}
+        {isModalOpen && currentMonk && (
+          <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-xs flex items-center justify-center p-4">
+            <div className="bg-white dark:bg-[#15110a] border border-amber-300 dark:border-amber-950 p-6 rounded-3xl max-w-lg w-full space-y-4 max-h-[90vh] overflow-y-auto shadow-2xl">
+              <div className="flex justify-between items-center border-b border-amber-100 dark:border-amber-950/40 pb-3">
+                <h3 className="font-extrabold text-base text-amber-950 dark:text-amber-200 font-heading">
+                  ✏️ แก้ไขข้อมูลส่วนตัว & ตั้งค่ารหัสผ่าน
+                </h3>
+                <button
+                  onClick={() => setIsModalOpen(false)}
+                  className="p-1 rounded-lg text-amber-700 dark:text-amber-400 hover:bg-amber-500/10 cursor-pointer"
+                >
+                  <X className="size-5" />
+                </button>
+              </div>
+
+              <form onSubmit={handleSaveMemberProfile} className="space-y-4 text-xs">
+                {passwordError && (
+                  <div className="p-3 rounded-xl bg-red-500/10 border border-red-500/30 text-red-600 font-bold text-xs">
+                    ⚠️ {passwordError}
+                  </div>
+                )}
+
+                {/* Account & Profile Fields */}
+                <div className="space-y-3">
+                  <h4 className="font-extrabold text-amber-900 dark:text-amber-300">1. ข้อมูลบัญชีผู้ใช้ & ข้อมูลติดต่อส่วนบุคคล</h4>
+                  <div className="space-y-3">
+                    <div>
+                      <label className="font-bold text-amber-900/80 dark:text-amber-300 block mb-1">
+                        📧 อีเมลประจำบัญชี / เข้าสู่ระบบ (Login Email) *
+                      </label>
+                      <input
+                        type="email"
+                        required
+                        value={userEmail}
+                        onChange={(e) => setUserEmail(e.target.value)}
+                        placeholder="example@temple.mail.go.th"
+                        className="w-full px-3 py-2 text-xs rounded-xl border border-amber-200 dark:border-amber-950 bg-white dark:bg-[#110e08] text-amber-950 dark:text-amber-100 outline-none focus:ring-2 focus:ring-amber-500/20 font-mono"
+                      />
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div>
+                        <label className="font-bold text-amber-900/80 dark:text-amber-300 block mb-1">ชื่อ-นามสกุล *</label>
+                        <input
+                          type="text"
+                          required
+                          value={currentMonk.name || ''}
+                          onChange={(e) => updateFormFields('name', e.target.value)}
+                          className="w-full px-3 py-2 text-xs rounded-xl border border-amber-200 dark:border-amber-950 bg-white dark:bg-[#110e08] text-amber-950 dark:text-amber-100 outline-none"
+                        />
+                      </div>
+                      <div>
+                        <label className="font-bold text-amber-900/80 dark:text-amber-300 block mb-1">ฉายา</label>
+                        <input
+                          type="text"
+                          value={currentMonk.chaya || ''}
+                          onChange={(e) => updateFormFields('chaya', e.target.value)}
+                          className="w-full px-3 py-2 text-xs rounded-xl border border-amber-200 dark:border-amber-950 bg-white dark:bg-[#110e08] text-amber-950 dark:text-amber-100 outline-none"
+                        />
+                      </div>
+                      <div>
+                        <label className="font-bold text-amber-900/80 dark:text-amber-300 block mb-1">เบอร์โทรศัพท์</label>
+                        <input
+                          type="text"
+                          value={currentMonk.phone || ''}
+                          onChange={(e) => updateFormFields('phone', e.target.value)}
+                          className="w-full px-3 py-2 text-xs rounded-xl border border-amber-200 dark:border-amber-950 bg-white dark:bg-[#110e08] text-amber-950 dark:text-amber-100 outline-none"
+                        />
+                      </div>
+                      <div>
+                        <label className="font-bold text-amber-900/80 dark:text-amber-300 block mb-1">ภูมิลำเนา</label>
+                        <input
+                          type="text"
+                          value={currentMonk.domicile_address || ''}
+                          onChange={(e) => updateFormFields('domicile_address', e.target.value)}
+                          className="w-full px-3 py-2 text-xs rounded-xl border border-amber-200 dark:border-amber-950 bg-white dark:bg-[#110e08] text-amber-950 dark:text-amber-100 outline-none"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Password Configuration Section */}
+                <div className="space-y-3 border-t border-amber-100 dark:border-amber-950/40 pt-3">
+                  <h4 className="font-extrabold text-amber-900 dark:text-amber-300 flex items-center gap-1.5">
+                    <span>🔑 ตั้งค่ารหัสผ่านเข้าสู่ระบบใหม่ (Password Setting)</span>
+                  </h4>
+                  <p className="text-[10px] text-amber-800/60 dark:text-amber-400/60">
+                    หากไม่ต้องการเปลี่ยนรหัสผ่าน ให้เว้นว่างช่องนี้ไว้ได้ครับ
+                  </p>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <label className="font-bold text-amber-900/80 dark:text-amber-300 block mb-1">รหัสผ่านใหม่ (New Password)</label>
+                      <input
+                        type="password"
+                        value={newPassword}
+                        onChange={(e) => setNewPassword(e.target.value)}
+                        placeholder="ป้อนรหัสผ่านใหม่..."
+                        className="w-full px-3 py-2 text-xs rounded-xl border border-amber-200 dark:border-amber-950 bg-white dark:bg-[#110e08] text-amber-950 dark:text-amber-100 outline-none focus:ring-2 focus:ring-amber-500/20"
+                      />
+                    </div>
+                    <div>
+                      <label className="font-bold text-amber-900/80 dark:text-amber-300 block mb-1">ยืนยันรหัสผ่านใหม่ (Confirm Password)</label>
+                      <input
+                        type="password"
+                        value={confirmPassword}
+                        onChange={(e) => setConfirmPassword(e.target.value)}
+                        placeholder="ป้อนรหัสผ่านใหม่อีกครั้ง..."
+                        className="w-full px-3 py-2 text-xs rounded-xl border border-amber-200 dark:border-amber-950 bg-white dark:bg-[#110e08] text-amber-950 dark:text-amber-100 outline-none focus:ring-2 focus:ring-amber-500/20"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex gap-2 pt-3 border-t border-amber-100 dark:border-amber-950/40">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => setIsModalOpen(false)}
+                    className="flex-1 py-3 text-xs rounded-xl border-amber-200 hover:bg-amber-500/10 cursor-pointer"
+                  >
+                    ยกเลิก
+                  </Button>
+                  <Button
+                    type="submit"
+                    disabled={isSaving}
+                    className="flex-1 py-3 text-xs rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-bold cursor-pointer shadow-md"
+                  >
+                    {isSaving ? 'กำลังบันทึก...' : 'บันทึกข้อมูล & รหัสผ่าน'}
+                  </Button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+
+        {lightboxImage && (
+          <ImageLightbox src={lightboxImage} onClose={() => setLightboxImage(null)} />
+        )}
+      </div>
+    );
+  }
 
   const displayedMonks = filteredMonks.filter(monk => {
     if (personTypeFilter === 'all') return true;
@@ -249,9 +627,10 @@ export default function MonksManagement() {
                         src={monk.image_url}
                         width={48}
                         height={48}
-                        className="w-12 h-12 rounded-full object-cover border border-amber-500/20 shadow-sm"
+                        className="w-12 h-12 rounded-full object-cover border border-amber-500/20 shadow-sm cursor-zoom-in hover:opacity-90 transition-opacity"
                         alt={monk.name}
                         unoptimized
+                        onClick={() => setLightboxImage(monk.image_url || null)}
                         onError={(e) => {
                           (e.currentTarget as HTMLImageElement).style.display = 'none';
                         }}
@@ -291,6 +670,10 @@ export default function MonksManagement() {
                     <div className="flex items-center gap-2.5 text-amber-800/80 dark:text-amber-400/80">
                       <Phone className="size-4 text-amber-600 dark:text-amber-500" />
                       <span>เบอร์โทร: <strong className="font-semibold text-amber-950 dark:text-amber-200">{monk.phone || 'ไม่ระบุ'}</strong></span>
+                    </div>
+                    <div className="flex items-center gap-2.5 text-amber-800/80 dark:text-amber-400/80">
+                      <MessageCircle className="size-4 text-amber-600 dark:text-amber-500" />
+                      <span>เชื่อมต่อ LINE: <strong className={`font-bold ${monk.line_user_id ? 'text-emerald-600 dark:text-emerald-450' : 'text-rose-600 dark:text-rose-455'}`}>{monk.line_user_id ? 'เชื่อมต่อแล้ว' : 'ยังไม่เชื่อมต่อ'}</strong></span>
                     </div>
                   </div>
 
@@ -418,6 +801,7 @@ export default function MonksManagement() {
                   <th className="p-4 text-center">ประเภท</th>
                   <th className="p-4">วันอุปสมบท/บรรพชา</th>
                   <th className="p-4">เบอร์โทรศัพท์</th>
+                  <th className="p-4 text-center">ไลน์บอท</th>
                   <th className="p-4 text-center">สถานะ</th>
                   <th className="p-4 text-center w-40">การจัดการ</th>
                 </tr>
@@ -432,8 +816,9 @@ export default function MonksManagement() {
                           {monk.image_url ? (
                             <img
                               src={monk.image_url}
-                              className="w-10 h-10 rounded-full object-cover border border-amber-500/25 shadow-sm"
+                              className="w-10 h-10 rounded-full object-cover border border-amber-500/25 shadow-sm cursor-zoom-in hover:opacity-90 transition-opacity"
                               alt={monk.name}
+                              onClick={() => setLightboxImage(monk.image_url || null)}
                             />
                           ) : (
                             <div className="w-10 h-10 rounded-full bg-linear-to-tr from-amber-500/10 to-amber-600/10 border border-amber-500/20 flex items-center justify-center font-bold text-amber-800 dark:text-amber-400 text-sm">
@@ -452,7 +837,7 @@ export default function MonksManagement() {
                         {monk.rank}
                       </td>
                       <td className="p-4 text-center">
-                        <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                        <span className={`whitespace-nowrap px-2 py-0.5 rounded text-[10px] font-bold ${
                           personType === 'novice'
                             ? 'bg-orange-500/10 text-orange-600 dark:text-orange-450 border border-orange-500/20'
                             : personType === 'disciple'
@@ -469,7 +854,16 @@ export default function MonksManagement() {
                         {monk.phone || '-'}
                       </td>
                       <td className="p-4 text-center">
-                        <span className={`px-2.5 py-0.5 rounded-[4px] text-[10px] font-bold ${
+                        <span className={`whitespace-nowrap px-2.5 py-0.5 rounded-[4px] text-[10px] font-bold border ${
+                          monk.line_user_id
+                            ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-450 border-emerald-500/20'
+                            : 'bg-rose-500/10 text-rose-600 dark:text-rose-455 border-rose-500/20'
+                        }`}>
+                          {monk.line_user_id ? '🟢 เชื่อมต่อแล้ว' : '🔴 ยังไม่ผูก'}
+                        </span>
+                      </td>
+                      <td className="p-4 text-center">
+                        <span className={`whitespace-nowrap px-2.5 py-0.5 rounded-[4px] text-[10px] font-bold ${
                           monk.status === 'active'
                             ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-450'
                             : monk.status === 'away'
@@ -1012,9 +1406,10 @@ export default function MonksManagement() {
                     src={detailedMonk.image_url}
                     width={80}
                     height={80}
-                    className="w-20 h-20 rounded-full object-cover border-2 border-amber-500 shadow-md"
+                    className="w-20 h-20 rounded-full object-cover border-2 border-amber-500 shadow-md cursor-zoom-in hover:opacity-90 transition-opacity"
                     alt={detailedMonk.name}
                     unoptimized
+                    onClick={() => setLightboxImage(detailedMonk.image_url || null)}
                   />
                 ) : (
                   <div className="w-20 h-20 rounded-full bg-linear-to-tr from-amber-500 to-amber-600 border-2 border-amber-500/30 flex items-center justify-center font-bold text-white text-3xl">
@@ -1156,6 +1551,7 @@ export default function MonksManagement() {
           </div>
         </div>
       )}
+      <ImageLightbox src={lightboxImage} onClose={() => setLightboxImage(null)} />
     </div>
   );
 }

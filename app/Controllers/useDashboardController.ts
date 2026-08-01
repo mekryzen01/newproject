@@ -43,11 +43,14 @@ export function useDashboardController() {
   // Derived Calculations (Business Logic)
   const totalMonks = monks.filter(m => m.status === 'active').length;
   
-  const totalIncome = transactions
+  // Filter out personal monk transactions to only show temple transactions on the temple dashboard
+  const templeTransactions = transactions.filter(t => !t.monk_id);
+
+  const totalIncome = templeTransactions
     .filter(t => t.type === 'income')
     .reduce((sum, t) => sum + t.amount, 0);
 
-  const totalExpense = transactions
+  const totalExpense = templeTransactions
     .filter(t => t.type === 'expense')
     .reduce((sum, t) => sum + t.amount, 0);
 
@@ -60,7 +63,7 @@ export function useDashboardController() {
   const activeBorrows = borrowRecords
     .filter(b => b.status === 'borrowed' || b.status === 'overdue');
 
-  const recentTransactions = transactions.slice(0, 4);
+  const recentTransactions = templeTransactions.slice(0, 4);
 
   return {
     monks,

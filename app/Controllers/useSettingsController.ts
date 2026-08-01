@@ -8,7 +8,9 @@ export function useSettingsController() {
     templeName: '',
     abbr: '',
     logoIcon: 'Compass',
-    themeColor: 'amber'
+    themeColor: 'amber',
+    address: '',
+    googleMapUrl: ''
   });
   const [loading, setLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
@@ -95,7 +97,7 @@ export function useSettingsController() {
       onConfirm: async () => {
         setConfirmState(null);
         const defaultSettings: TempleSettings = {
-          templeName: 'วัดศรีสว่างธรรมาราม',
+          templeName: 'วัด',
           abbr: 'TEMPLE OS',
           logoIcon: 'Compass',
           themeColor: 'amber'
@@ -108,7 +110,7 @@ export function useSettingsController() {
             show: true,
             variant: 'warning',
             title: 'รีเซ็ตค่ากลับเป็นเริ่มต้น',
-            description: 'คืนค่าธีมสีวัดศรีสว่างธรรมารามแบบดั้งเดิมเรียบร้อยแล้ว'
+            description: 'คืนค่าระบบกลับเป็นค่าเริ่มต้นดั้งเดิมเรียบร้อยแล้ว'
           });
         } catch (err) {
           setAlertState({

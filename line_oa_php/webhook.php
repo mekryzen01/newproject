@@ -59,6 +59,27 @@ if (!empty($channelSecret)) {
     logMessage("Warning: LINE_CHANNEL_SECRET is not configured in DB or config.php. Skipping verification.");
 }
 
+// Forward webhook request to Next.js API
+try {
+    $nextjsWebhookUrl = 'https://watdongsedthee.com/WatdongOS/api/line/webhook';
+    $ch = curl_init($nextjsWebhookUrl);
+    curl_setopt($ch, CURLOPT_POST, true);
+    curl_setopt($ch, CURLOPT_POSTFIELDS, $body);
+    curl_setopt($ch, CURLOPT_HTTPHEADER, [
+        'Content-Type: application/json',
+        'X-Line-Signature: ' . $signature
+    ]);
+    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+    curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
+    curl_setopt($ch, CURLOPT_TIMEOUT, 5);
+    $nextjsResponse = curl_exec($ch);
+    $nextjsCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    curl_close($ch);
+    logMessage("Forwarded to Next.js. Response Code: {$nextjsCode}, Response: {$nextjsResponse}");
+} catch (Exception $e) {
+    logMessage("Failed to forward webhook to Next.js: " . $e->getMessage());
+}
+
 // 4. Parse JSON webhook payload
 $data = json_decode($body, true);
 $events = $data['events'] ?? [];

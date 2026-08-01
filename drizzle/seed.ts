@@ -16,7 +16,7 @@ const sql = postgres(connectionString, { prepare: false });
 
 const defaultSettings = {
   id: 'config-1',
-  temple_name: 'วัดศรีสว่างธรรมาราม',
+  temple_name: 'วัด',
   abbr: 'TEMPLE OS',
   logo_icon: 'Compass',
   theme_color: 'amber',

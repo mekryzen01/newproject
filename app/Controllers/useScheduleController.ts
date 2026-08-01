@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { db, TempleEvent, Monk } from '@/lib/db';
 import { checkWanKaoKong } from '@/lib/lanna-calendar';
+import { offlineSyncManager } from '@/lib/offlineSync';
 
 export function useScheduleController() {
   const [events, setEvents] = useState<TempleEvent[]>([]);
@@ -78,6 +79,18 @@ export function useScheduleController() {
       description: 'คุณต้องการลบตารางงานนิมนต์นี้ออกใช่หรือไม่? การดำเนินการนี้ไม่สามารถย้อนกลับได้',
       onConfirm: async () => {
         setConfirmState(null);
+        if (typeof window !== 'undefined' && !navigator.onLine) {
+          offlineSyncManager.queueAction('event', 'delete', id, 'ลบตารางงานนิมนต์');
+          setAlertState({
+            show: true,
+            variant: 'warning',
+            title: 'ลบออฟไลน์สำเร็จ 📶',
+            description: 'รายการงานนิมนต์ถูกบันทึกการลบในเครื่องแล้ว และจะซิงค์ลบให้อัตโนมัติเมื่อเน็ตกลับมา'
+          });
+          setTimeout(() => setAlertState(null), 4000);
+          return;
+        }
+
         try {
           const eventToDelete = events.find(e => e.id === id);
           
@@ -99,13 +112,24 @@ export function useScheduleController() {
             description: 'ลบตารางงานนิมนต์ออกจากระบบเรียบร้อยแล้ว'
           });
           setTimeout(() => setAlertState(null), 4000);
-        } catch (err) {
-          setAlertState({
-            show: true,
-            variant: 'destructive',
-            title: 'เกิดข้อผิดพลาดในการลบรายการ',
-            description: 'ไม่สามารถลบตารางงานนิมนต์รายการนี้ได้'
-          });
+        } catch (err: any) {
+          if (err.message?.includes('fetch') || (typeof window !== 'undefined' && !navigator.onLine)) {
+            offlineSyncManager.queueAction('event', 'delete', id, 'ลบตารางงานนิมนต์');
+            setAlertState({
+              show: true,
+              variant: 'warning',
+              title: 'ลบออฟไลน์สำเร็จ 📶',
+              description: 'เน็ตขัดข้อง รายการงานนิมนต์ถูกบันทึกการลบในเครื่องแล้ว และจะซิงค์ลบให้อัตโนมัติเมื่อเน็ตกลับมา'
+            });
+            setTimeout(() => setAlertState(null), 4000);
+          } else {
+            setAlertState({
+              show: true,
+              variant: 'destructive',
+              title: 'เกิดข้อผิดพลาดในการลบรายการ',
+              description: 'ไม่สามารถลบตารางงานนิมนต์รายการนี้ได้'
+            });
+          }
         }
       }
     });
@@ -133,6 +157,25 @@ export function useScheduleController() {
       }
     }
 
+    if (typeof window !== 'undefined' && !navigator.onLine) {
+      offlineSyncManager.queueAction(
+        'event',
+        currentEvent.id ? 'update' : 'create',
+        currentEvent,
+        `งานนิมนต์ (${currentEvent.title})`
+      );
+      setIsModalOpen(false);
+      setCurrentEvent(null);
+      setAlertState({
+        show: true,
+        variant: 'warning',
+        title: 'บันทึกออฟไลน์สำเร็จ 📶',
+        description: 'ขณะนี้เครื่องไม่มีสัญญาณอินเทอร์เน็ต ข้อมูลงานนิมนต์ถูกบันทึกไว้ในเครื่องแล้ว และจะทำการซิงค์ให้อัตโนมัติเมื่อเน็ตกลับมา'
+      });
+      setTimeout(() => setAlertState(null), 5000);
+      return;
+    }
+
     setIsSaving(true);
     try {
       const isEdit = events.some(ev => ev.id === currentEvent.id);
@@ -155,13 +198,31 @@ export function useScheduleController() {
         description: 'บันทึกตารางงานนิมนต์และศาสนพิธีเรียบร้อยแล้ว'
       });
       setTimeout(() => setAlertState(null), 4000);
-    } catch (err) {
-      setAlertState({
-        show: true,
-        variant: 'destructive',
-        title: 'เกิดข้อผิดพลาดในการบันทึกตาราง',
-        description: 'ไม่สามารถจัดเก็บข้อมูลตารางงานนิมนต์รายการนี้ได้'
-      });
+    } catch (err: any) {
+      if (err.message?.includes('fetch') || (typeof window !== 'undefined' && !navigator.onLine)) {
+        offlineSyncManager.queueAction(
+          'event',
+          currentEvent.id ? 'update' : 'create',
+          currentEvent,
+          `งานนิมนต์ (${currentEvent.title})`
+        );
+        setIsModalOpen(false);
+        setCurrentEvent(null);
+        setAlertState({
+          show: true,
+          variant: 'warning',
+          title: 'บันทึกออฟไลน์สำเร็จ 📶',
+          description: 'เน็ตขัดข้อง ข้อมูลงานนิมนต์ถูกบันทึกไว้ในเครื่องแล้ว และจะทำการซิงค์ให้อัตโนมัติเมื่อเน็ตกลับมา'
+        });
+        setTimeout(() => setAlertState(null), 5000);
+      } else {
+        setAlertState({
+          show: true,
+          variant: 'destructive',
+          title: 'เกิดข้อผิดพลาดในการบันทึกตาราง',
+          description: 'ไม่สามารถจัดเก็บข้อมูลตารางงานนิมนต์รายการนี้ได้'
+        });
+      }
     } finally {
       setIsSaving(false);
     }

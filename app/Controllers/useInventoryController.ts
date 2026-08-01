@@ -7,8 +7,10 @@ export function useInventoryController() {
   const [activeTab, setActiveTab] = useState<'inventory' | 'borrow'>('inventory');
   const [inventory, setInventory] = useState<InventoryItem[]>([]);
   const [borrowRecords, setBorrowRecords] = useState<BorrowRecord[]>([]);
+  const [users, setUsers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
+  const [selectedCategory, setSelectedCategory] = useState<string>('all');
 
   // Modals state
   const [isItemModalOpen, setIsItemModalOpen] = useState(false);
@@ -37,12 +39,14 @@ export function useInventoryController() {
   const loadData = async () => {
     setLoading(true);
     try {
-      const [invList, borrowList] = await Promise.all([
+      const [invList, borrowList, userList] = await Promise.all([
         db.inventory.list(),
-        db.borrow.list()
+        db.borrow.list(),
+        db.users.list().catch(() => [])
       ]);
       setInventory(invList);
       setBorrowRecords(borrowList);
+      setUsers(userList);
     } catch (err) {
       console.error('Failed to load inventory data', err);
     } finally {
@@ -107,10 +111,13 @@ export function useInventoryController() {
 
     setIsSaving(true);
     try {
-      // For new item or adjustments, sync available qty
+      // Calculate available_qty dynamically based on active (unreturned) borrows to prevent desynchronization
+      const activeBorrowList = borrowRecords.filter(b => b.item_id === currentItem.id && b.status !== 'returned');
+      const activeBorrowedQty = activeBorrowList.reduce((sum, b) => sum + b.borrow_qty, 0);
+      
       const updated = {
         ...currentItem,
-        available_qty: currentItem.available_qty === undefined ? currentItem.total_qty : currentItem.available_qty
+        available_qty: Math.max(0, currentItem.total_qty - activeBorrowedQty)
       } as InventoryItem;
       
       await db.inventory.save(updated);
@@ -137,11 +144,19 @@ export function useInventoryController() {
   };
 
   // Borrow Form Methods
-  const handleOpenAddBorrowModal = () => {
+  const handleOpenAddBorrowModal = (itemId?: string) => {
+    let itemName = '';
+    if (itemId) {
+      const item = inventory.find(i => i.id === itemId);
+      if (item) {
+        itemName = item.name;
+      }
+    }
+    
     setCurrentBorrow({
       id: `b-${Date.now()}`,
-      item_id: '',
-      item_name: '',
+      item_id: itemId || '',
+      item_name: itemName,
       borrower_name: '',
       borrower_phone: '',
       borrow_qty: 1,
@@ -161,10 +176,25 @@ export function useInventoryController() {
       onConfirm: async () => {
         setConfirmState(null);
         try {
+          // Retrieve current logged in user ID from localStorage session
+          let userId = null;
+          if (typeof window !== 'undefined') {
+            const sessionStr = localStorage.getItem('temple_session');
+            if (sessionStr) {
+              try {
+                const session = JSON.parse(sessionStr);
+                userId = session.user?.id || null;
+              } catch (e) {
+                console.error('Failed to parse temple session:', e);
+              }
+            }
+          }
+
           const updatedRecord: BorrowRecord = {
             ...record,
             return_date: new Date().toISOString().split('T')[0],
-            status: 'returned'
+            status: 'returned',
+            returned_by: userId
           };
           await db.borrow.save(updatedRecord);
           loadData();
@@ -207,10 +237,25 @@ export function useInventoryController() {
 
     setIsSaving(true);
     try {
+      // Retrieve current logged in user ID from localStorage session
+      let userId = null;
+      if (typeof window !== 'undefined') {
+        const sessionStr = localStorage.getItem('temple_session');
+        if (sessionStr) {
+          try {
+            const session = JSON.parse(sessionStr);
+            userId = session.user?.id || null;
+          } catch (e) {
+            console.error('Failed to parse temple session:', e);
+          }
+        }
+      }
+
       const selectedItemName = targetItem.name;
       const updatedBorrow = {
         ...currentBorrow,
-        item_name: selectedItemName
+        item_name: selectedItemName,
+        created_by: currentBorrow.created_by || userId
       } as BorrowRecord;
 
       await db.borrow.save(updatedBorrow);
@@ -276,10 +321,19 @@ export function useInventoryController() {
   };
 
   // Filter & Search
-  const filteredInventory = inventory.filter(item => 
-    item.name.toLowerCase().includes(search.toLowerCase()) ||
-    item.category.toLowerCase().includes(search.toLowerCase())
-  );
+  const filteredInventory = inventory.filter(item => {
+    // 1. Category filter selection
+    if (selectedCategory !== 'all' && item.category !== selectedCategory) {
+      return false;
+    }
+    // 2. Search text filter (matches name, category, and storage location)
+    const query = search.toLowerCase();
+    return (
+      item.name.toLowerCase().includes(query) ||
+      item.category.toLowerCase().includes(query) ||
+      (item.location && item.location.toLowerCase().includes(query))
+    );
+  });
 
   const filteredBorrows = borrowRecords.filter(b =>
     b.borrower_name.toLowerCase().includes(search.toLowerCase()) ||
@@ -295,6 +349,8 @@ export function useInventoryController() {
     loading,
     search,
     setSearch,
+    selectedCategory,
+    setSelectedCategory,
     isItemModalOpen,
     setIsItemModalOpen,
     currentItem,
@@ -316,6 +372,7 @@ export function useInventoryController() {
     updateItemFormFields,
     updateBorrowFormFields,
     filteredInventory,
-    filteredBorrows
+    filteredBorrows,
+    users
   };
 }

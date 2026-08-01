@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { db, Monk, MonkRank } from '@/lib/db';
+import { offlineSyncManager } from '@/lib/offlineSync';
 
 export function useMonksController() {
   const [monks, setMonks] = useState<Monk[]>([]);
@@ -84,6 +85,18 @@ export function useMonksController() {
       description: 'คุณแน่ใจหรือไม่ว่าต้องการลบข้อมูลพระภิกษุรูปนี้ออกจากระบบ? การดำเนินการนี้ไม่สามารถย้อนกลับได้',
       onConfirm: async () => {
         setConfirmState(null);
+        if (typeof window !== 'undefined' && !navigator.onLine) {
+          offlineSyncManager.queueAction('monk', 'delete', id, 'ลบทะเบียนพระภิกษุสามเณร');
+          setAlertState({
+            show: true,
+            variant: 'warning',
+            title: 'ลบออฟไลน์สำเร็จ 📶',
+            description: 'รายการถูกบันทึกการลบในความจำเครื่องแล้ว และจะทำการซิงค์ลบให้อัตโนมัติเมื่อเน็ตกลับมา'
+          });
+          setTimeout(() => setAlertState(null), 4000);
+          return;
+        }
+
         try {
           await db.monks.delete(id);
           loadMonks();
@@ -94,13 +107,24 @@ export function useMonksController() {
             description: 'ลบทะเบียนรายชื่อพระภิกษุสามเณรเรียบร้อยแล้ว'
           });
           setTimeout(() => setAlertState(null), 4000);
-        } catch (err) {
-          setAlertState({
-            show: true,
-            variant: 'destructive',
-            title: 'เกิดข้อผิดพลาดในการลบข้อมูล',
-            description: 'ไม่สามารถลบข้อมูลรายชื่อรูปนี้ได้'
-          });
+        } catch (err: any) {
+          if (err.message?.includes('fetch') || (typeof window !== 'undefined' && !navigator.onLine)) {
+            offlineSyncManager.queueAction('monk', 'delete', id, 'ลบทะเบียนพระภิกษุสามเณร');
+            setAlertState({
+              show: true,
+              variant: 'warning',
+              title: 'ลบออฟไลน์สำเร็จ 📶',
+              description: 'เน็ตขัดข้อง รายการถูกบันทึกการลบในความจำเครื่องแล้ว และจะทำการซิงค์ลบให้อัตโนมัติเมื่อเน็ตกลับมา'
+            });
+            setTimeout(() => setAlertState(null), 4000);
+          } else {
+            setAlertState({
+              show: true,
+              variant: 'destructive',
+              title: 'เกิดข้อผิดพลาดในการลบข้อมูล',
+              description: 'ไม่สามารถลบข้อมูลรายชื่อรูปนี้ได้'
+            });
+          }
         }
       }
     });
@@ -109,6 +133,25 @@ export function useMonksController() {
   const handleSaveMonk = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!currentMonk || !currentMonk.name) return;
+
+    if (typeof window !== 'undefined' && !navigator.onLine) {
+      offlineSyncManager.queueAction(
+        'monk',
+        currentMonk.id ? 'update' : 'create',
+        currentMonk,
+        `ทะเบียนพระ (${currentMonk.name})`
+      );
+      setIsModalOpen(false);
+      setCurrentMonk(null);
+      setAlertState({
+        show: true,
+        variant: 'warning',
+        title: 'บันทึกออฟไลน์สำเร็จ 📶',
+        description: 'ขณะนี้เครื่องไม่มีสัญญาณอินเทอร์เน็ต ข้อมูลพระถูกบันทึกไว้ในเครื่องแล้ว และจะทำการซิงค์ให้อัตโนมัติเมื่อเน็ตกลับมา'
+      });
+      setTimeout(() => setAlertState(null), 5000);
+      return;
+    }
 
     setIsSaving(true);
     try {
@@ -123,13 +166,31 @@ export function useMonksController() {
         description: 'บันทึกข้อมูลทะเบียนพระภิกษุสามเณรเรียบร้อยแล้ว'
       });
       setTimeout(() => setAlertState(null), 4000);
-    } catch (err) {
-      setAlertState({
-        show: true,
-        variant: 'destructive',
-        title: 'เกิดข้อผิดพลาดในการบันทึกข้อมูล',
-        description: 'ไม่สามารถบันทึกข้อมูลทะเบียนพระภิกษุสามเณรได้'
-      });
+    } catch (err: any) {
+      if (err.message?.includes('fetch') || (typeof window !== 'undefined' && !navigator.onLine)) {
+        offlineSyncManager.queueAction(
+          'monk',
+          currentMonk.id ? 'update' : 'create',
+          currentMonk,
+          `ทะเบียนพระ (${currentMonk.name})`
+        );
+        setIsModalOpen(false);
+        setCurrentMonk(null);
+        setAlertState({
+          show: true,
+          variant: 'warning',
+          title: 'บันทึกออฟไลน์สำเร็จ 📶',
+          description: 'เน็ตขัดข้อง ข้อมูลพระถูกบันทึกไว้ในเครื่องแล้ว และจะทำการซิงค์ให้อัตโนมัติเมื่อเน็ตกลับมา'
+        });
+        setTimeout(() => setAlertState(null), 5000);
+      } else {
+        setAlertState({
+          show: true,
+          variant: 'destructive',
+          title: 'เกิดข้อผิดพลาดในการบันทึกข้อมูล',
+          description: 'ไม่สามารถบันทึกข้อมูลทะเบียนพระภิกษุสามเณรได้'
+        });
+      }
     } finally {
       setIsSaving(false);
     }

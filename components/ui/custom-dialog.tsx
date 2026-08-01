@@ -27,7 +27,13 @@ export function CustomDialog({
   onConfirm,
   onCancel
 }: CustomDialogProps) {
-  if (!show) return null;
+  const [internalShow, setInternalShow] = React.useState(show);
+
+  React.useEffect(() => {
+    setInternalShow(show);
+  }, [show]);
+
+  if (!internalShow) return null;
 
   // Variant styles and icons
   let icon = <Info className="size-8 text-amber-500" />;
@@ -49,6 +55,7 @@ export function CustomDialog({
   }
 
   const handleClose = () => {
+    setInternalShow(false);
     if (onCancel) {
       onCancel();
     } else if (type === 'alert') {
@@ -56,8 +63,13 @@ export function CustomDialog({
     }
   };
 
+  const handleConfirm = () => {
+    setInternalShow(false);
+    onConfirm();
+  };
+
   return (
-    <div className="fixed inset-0 flex items-center justify-center z-[100] bg-black/60 backdrop-blur-xs p-4 animate-fade-in">
+    <div className="fixed inset-0 flex items-center justify-center z-[200] bg-black/60 backdrop-blur-xs p-4 animate-fade-in">
       <div className="bg-white dark:bg-[#15110a] rounded-2xl border border-amber-200/50 dark:border-amber-950/40 shadow-2xl w-full max-w-sm overflow-hidden animate-scale-up relative">
         {/* Modal Ribbon Accent */}
         <div className={`h-1.5 bg-gradient-to-r ${accentColor}`} />
@@ -100,7 +112,7 @@ export function CustomDialog({
                 <Button
                   type="button"
                   variant={variant === 'destructive' ? 'destructive' : 'default'}
-                  onClick={onConfirm}
+                  onClick={handleConfirm}
                   className={`flex-1 text-white font-bold text-xs py-5 border-none shadow-md cursor-pointer ${
                     variant === 'destructive'
                       ? 'bg-rose-500 hover:bg-rose-600 shadow-rose-500/10'
@@ -113,7 +125,7 @@ export function CustomDialog({
             ) : (
               <Button
                 type="button"
-                onClick={onConfirm}
+                onClick={handleConfirm}
                 className="w-full bg-amber-500 hover:bg-amber-600 text-white font-bold text-xs py-5 border-none shadow-md shadow-amber-500/10 cursor-pointer"
               >
                 {confirmText}

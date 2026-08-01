@@ -67,7 +67,11 @@ export function useAshesController() {
       relative_phone: '',
       deposit_date: new Date().toISOString().split('T')[0],
       deposited_by: getCurrentUserName(),
-      notes: ''
+      notes: '',
+      status: 'deposited',
+      withdraw_date: '',
+      withdraw_by: '',
+      withdraw_reason: ''
     });
     setIsModalOpen(true);
   };
@@ -114,13 +118,13 @@ export function useAshesController() {
     e.preventDefault();
     if (!currentRecord || !currentRecord.deceased_name || !currentRecord.niche_code || !currentRecord.relative_name || !currentRecord.deposited_by) return;
 
-    // Validate niche_code format: digits/digits
-    if (!/^[0-9]+\/[0-9]+$/.test(currentRecord.niche_code)) {
+    // Validate niche_code format: allows letters, numbers, Thai letters, slashes, dashes, and spaces
+    if (!/^[a-zA-Z0-9ก-๙\/\-\s]+$/.test(currentRecord.niche_code)) {
       setAlertState({
         show: true,
         variant: 'warning',
         title: 'รูปแบบตู้ที่/ล็อกที่ไม่ถูกต้อง',
-        description: 'กรุณากรอกในรูปแบบ ตัวเลข/ตัวเลข เช่น 1/12 หรือ 3/6'
+        description: 'กรุณากรอกรหัสล็อกเป็นตัวอักษรหรือตัวเลข เช่น 1/12, 3-B หรือ ตู้ 3 ล็อก 5'
       });
       setTimeout(() => setAlertState(null), 4000);
       return;
